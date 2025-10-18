@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+  <xs:simpleType name="NonEmptyString">
+    <xs:restriction base="xs:string">
+      <xs:minLength value="1" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:element name="Configuration">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="Device" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="Frequency" type="NonEmptyString" minOccurs="0" />
+              <xs:element name="Power" type="NonEmptyString" minOccurs="0" />
+              <xs:element name="Mode" type="NonEmptyString" minOccurs="0" />
+              <xs:element name="Parameter" minOccurs="0" maxOccurs="unbounded">
+                <xs:complexType>
+                  <xs:attribute name="name" type="NonEmptyString" use="required" />
+                  <xs:attribute name="value" type="NonEmptyString" use="required" />
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+            <xs:attribute name="name" type="NonEmptyString" use="required" />
+            <xs:attribute name="source" type="NonEmptyString" use="optional" />
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

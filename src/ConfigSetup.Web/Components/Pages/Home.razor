@@ -1,0 +1,164 @@
+@page "/"
+
+@using System
+@using System.Collections.Generic
+@using System.Linq
+@using System.IO
+@using Microsoft.Extensions.Logging
+@using ConfigSetup.Application.Configuration
+@using ConfigSetup.Application.Scpi
+@using ConfigSetup.Domain.Scpi
+@inject IXmlConfigurationParser Parser
+@inject IScpiCommandGenerator CommandGenerator
+@inject ILogger<Home> Logger
+
+<h1 class="mb-3">ConfigSetup</h1>
+<p class="text-muted">Load an XML configuration, validate it against the schema, and review the generated SCPI command sequence.</p>
+
+<div class="row g-4">
+    <div class="col-12 col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-header fw-semibold">Configuration XML</div>
+            <div class="card-body">
+                <p class="card-text">Upload an XML file or paste the configuration directly into the editor.</p>
+                <InputFile OnChange="OnFileSelectedAsync" accept=".xml" class="form-control" />
+                <textarea class="form-control mt-3" rows="14" placeholder="Paste XML configuration here" @bind="XmlContent"></textarea>
+                <div class="d-flex justify-content-end mt-3 gap-2">
+                    <button class="btn btn-outline-secondary" @onclick="LoadSample">Load sample</button>
+                    <button class="btn btn-primary" @onclick="GenerateCommandsAsync" disabled="@IsProcessing">@GenerateButtonLabel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header fw-semibold">SCPI Commands</div>
+            <div class="card-body d-flex flex-column">
+                @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+                {
+                    <div class="alert alert-danger" role="alert">@ErrorMessage</div>
+                }
+                else if (!string.IsNullOrWhiteSpace(SuccessMessage))
+                {
+                    <div class="alert alert-success" role="alert">@SuccessMessage</div>
+                }
+
+                @if (GeneratedCommands.Count == 0)
+                {
+                    <p class="text-muted">Commands will appear here after a successful parse.</p>
+                }
+                else
+                {
+                    <div class="table-responsive flex-grow-1">
+                        <table class="table table-sm table-striped">
+                            <thead>
+                                <tr>
+                                    <th scope="col" style="width:6rem">#</th>
+                                    <th scope="col">Command</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var entry in GeneratedCommands.Select((command, index) => new { command, index }))
+                                {
+                                    <tr>
+                                        <th scope="row">@(entry.index + 1)</th>
+                                        <td><code>@entry.command.Text</code></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<details class="mt-4">
+    <summary class="fw-semibold">Schema summary</summary>
+    <p class="mb-1">The configuration must follow the embedded schema:</p>
+    <pre class="bg-body-tertiary p-3 small">&lt;Configuration&gt;
+  &lt;Device name="VXG-C" source="SOUR1"&gt;
+    &lt;Frequency&gt;1.2GHz&lt;/Frequency&gt;
+    &lt;Power&gt;-10dBm&lt;/Power&gt;
+    &lt;Mode&gt;FDM&lt;/Mode&gt;
+    &lt;Parameter name="WAVE:TYPE" value="SINE" /&gt;
+  &lt;/Device&gt;
+&lt;/Configuration&gt;</pre>
+</details>
+
+@code {
+    private string? XmlContent { get; set; }
+    private bool IsProcessing { get; set; }
+    private string? ErrorMessage { get; set; }
+    private string? SuccessMessage { get; set; }
+    private List<ScpiCommand> GeneratedCommands { get; } = new();
+
+    private string GenerateButtonLabel => IsProcessing ? "Processing..." : "Generate commands";
+
+    private async Task OnFileSelectedAsync(InputFileChangeEventArgs args)
+    {
+        if (args.FileCount == 0)
+        {
+            return;
+        }
+
+        var file = args.File;
+        await using var stream = file.OpenReadStream(256 * 1024);
+        using var reader = new StreamReader(stream);
+        XmlContent = await reader.ReadToEndAsync();
+        SuccessMessage = $"Loaded configuration from '{file.Name}'.";
+        ErrorMessage = null;
+    }
+
+    private async Task GenerateCommandsAsync()
+    {
+        if (string.IsNullOrWhiteSpace(XmlContent))
+        {
+            ErrorMessage = "Please provide configuration XML before generating commands.";
+            SuccessMessage = null;
+            return;
+        }
+
+        try
+        {
+            IsProcessing = true;
+            ErrorMessage = null;
+            SuccessMessage = null;
+
+            var configuration = Parser.Parse(XmlContent);
+            var commands = CommandGenerator.Generate(configuration);
+
+            GeneratedCommands.Clear();
+            GeneratedCommands.AddRange(commands);
+
+            SuccessMessage = $"Generated {GeneratedCommands.Count} SCPI commands.";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to generate commands from XML input.");
+            ErrorMessage = ex.Message;
+            GeneratedCommands.Clear();
+        }
+        finally
+        {
+            IsProcessing = false;
+        }
+    }
+
+    private void LoadSample()
+    {
+        XmlContent = """
+<Configuration>
+  <Device name="VXG-C" source="SOUR1">
+    <Frequency>1.2GHz</Frequency>
+    <Power>-10dBm</Power>
+    <Mode>FDM</Mode>
+    <Parameter name="WAVE:TYPE" value="SINE" />
+  </Device>
+</Configuration>
+""";
+        SuccessMessage = "Sample configuration loaded. Review and adjust as needed.";
+        ErrorMessage = null;
+    }
+}
