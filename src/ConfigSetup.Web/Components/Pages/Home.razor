@@ -2,47 +2,150 @@
 
 @using System
 @using System.Collections.Generic
-@using System.Linq
 @using System.IO
+@using System.Linq
+@using System.Diagnostics.CodeAnalysis
+@using System.Xml.Linq
 @using Microsoft.Extensions.Logging
 @using ConfigSetup.Application.Configuration
 @using ConfigSetup.Application.Scpi
+@using ConfigSetup.Domain.Models
 @using ConfigSetup.Domain.Scpi
 @inject IXmlConfigurationParser Parser
 @inject IScpiCommandGenerator CommandGenerator
 @inject ILogger<Home> Logger
 
 <h1 class="mb-3">ConfigSetup</h1>
-<p class="text-muted">Load an XML configuration, validate it against the schema, and review the generated SCPI command sequence.</p>
+<p class="text-muted">Load an XML configuration, validate it against the schema, inspect devices in a slicer-style editor, and review the generated SCPI command sequence.</p>
 
-<div class="row g-4">
-    <div class="col-12 col-lg-6">
-        <div class="card shadow-sm">
+@if (!string.IsNullOrWhiteSpace(ErrorMessage))
+{
+    <div class="alert alert-danger" role="alert">@ErrorMessage</div>
+}
+else if (!string.IsNullOrWhiteSpace(SuccessMessage))
+{
+    <div class="alert alert-success" role="alert">@SuccessMessage</div>
+}
+
+<div class="row g-4 align-items-stretch">
+    <div class="col-12 col-xl-4">
+        <div class="card shadow-sm h-100">
             <div class="card-header fw-semibold">Configuration XML</div>
-            <div class="card-body">
-                <p class="card-text">Upload an XML file or paste the configuration directly into the editor.</p>
+            <div class="card-body d-flex flex-column">
+                <p class="card-text">Upload an XML file, paste the configuration directly into the editor, or synchronize the UI with the XML.</p>
                 <InputFile OnChange="OnFileSelectedAsync" accept=".xml" class="form-control" />
-                <textarea class="form-control mt-3" rows="14" placeholder="Paste XML configuration here" @bind="XmlContent"></textarea>
-                <div class="d-flex justify-content-end mt-3 gap-2">
+                <textarea class="form-control flex-grow-1 mt-3" rows="14" placeholder="Paste XML configuration here" @bind="XmlContent"></textarea>
+                <div class="d-flex flex-wrap justify-content-end mt-3 gap-2">
                     <button class="btn btn-outline-secondary" @onclick="LoadSample">Load sample</button>
+                    <button class="btn btn-outline-primary" @onclick="SyncEditorsFromXml" disabled="@string.IsNullOrWhiteSpace(XmlContent)">Apply XML to UI</button>
                     <button class="btn btn-primary" @onclick="GenerateCommandsAsync" disabled="@IsProcessing">@GenerateButtonLabel</button>
                 </div>
             </div>
         </div>
     </div>
-    <div class="col-12 col-lg-6">
+    <div class="col-12 col-xl-4">
+        <div class="card shadow-sm h-100 slicer-card">
+            <div class="card-header fw-semibold">Device editor</div>
+            <div class="card-body d-flex flex-column">
+                <p class="card-text">Choose a device and adjust its settings. Defaults are preserved even when XML omits values.</p>
+                <div class="row g-3 slicer-layout flex-grow-1">
+                    <div class="col-12 col-lg-5 col-xxl-4">
+                        <div class="slicer-sidebar h-100 border rounded-3">
+                            <div class="list-group list-group-flush slicer-sidebar-list">
+                                @foreach (var device in DeviceEditors)
+                                {
+                                    <button type="button" class="@GetDeviceButtonClass(device)" @onclick="() => SelectDevice(device)">
+                                        <span>@device.Name</span>
+                                        <span class="badge text-bg-light">@device.Parameters.Count</span>
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-lg-7 col-xxl-8">
+                        @if (SelectedDevice is null)
+                        {
+                            <p class="text-muted">No device selected yet. Select a device from the list to begin editing.</p>
+                        }
+                        else
+                        {
+                            <div class="slicer-section mb-4">
+                                <h6 class="slicer-section-title">General</h6>
+                                <div class="row g-3">
+                                    <div class="col-sm-6">
+                                        <label class="form-label">Source</label>
+                                        <InputText class="form-control form-control-sm" @bind-Value="SelectedDevice.Source" @bind-Value:event="oninput" />
+                                        <div class="form-text">Default: <code>@FormatDefault(SelectedDevice.DefaultSource)</code></div>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <label class="form-label">Mode</label>
+                                        <InputText class="form-control form-control-sm" @bind-Value="SelectedDevice.Mode" @bind-Value:event="oninput" />
+                                        <div class="form-text">Default: <code>@FormatDefault(SelectedDevice.DefaultMode)</code></div>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <label class="form-label">Frequency</label>
+                                        <InputText class="form-control form-control-sm" @bind-Value="SelectedDevice.Frequency" @bind-Value:event="oninput" />
+                                        <div class="form-text">Default: <code>@FormatDefault(SelectedDevice.DefaultFrequency)</code></div>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <label class="form-label">Power</label>
+                                        <InputText class="form-control form-control-sm" @bind-Value="SelectedDevice.Power" @bind-Value:event="oninput" />
+                                        <div class="form-text">Default: <code>@FormatDefault(SelectedDevice.DefaultPower)</code></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="slicer-section">
+                                <h6 class="slicer-section-title">Parameters</h6>
+                                @if (SelectedDevice.Parameters.Count == 0)
+                                {
+                                    <p class="text-muted">No additional parameters have been defined for this device.</p>
+                                }
+                                else
+                                {
+                                    <div class="table-responsive slicer-parameter-table">
+                                        <table class="table table-sm align-middle mb-0">
+                                            <thead>
+                                                <tr>
+                                                    <th scope="col" style="width: 35%">Name</th>
+                                                    <th scope="col" style="width: 35%">Value</th>
+                                                    <th scope="col">Default</th>
+                                                    <th scope="col" class="text-end">Reset</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var parameter in SelectedDevice.Parameters)
+                                                {
+                                                    <tr>
+                                                        <th scope="row">@parameter.Name</th>
+                                                        <td>
+                                                            <InputText class="form-control form-control-sm" @bind-Value="parameter.Value" @bind-Value:event="oninput" />
+                                                        </td>
+                                                        <td class="text-muted small"><code>@FormatDefault(parameter.DefaultValue)</code></td>
+                                                        <td class="text-end">
+                                                            <button type="button" class="btn btn-link btn-sm" @onclick="() => ResetParameter(parameter)">Reset</button>
+                                                        </td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div class="d-flex justify-content-end gap-2 mt-4">
+                    <button class="btn btn-outline-secondary" type="button" @onclick="ResetSelectedDevice" disabled="@(SelectedDevice is null)">Reset device</button>
+                    <button class="btn btn-secondary" type="button" @onclick="SyncEditorsToXml" disabled="@(DeviceEditors.Count == 0)">Update XML</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-xl-4">
         <div class="card shadow-sm h-100">
             <div class="card-header fw-semibold">SCPI Commands</div>
             <div class="card-body d-flex flex-column">
-                @if (!string.IsNullOrWhiteSpace(ErrorMessage))
-                {
-                    <div class="alert alert-danger" role="alert">@ErrorMessage</div>
-                }
-                else if (!string.IsNullOrWhiteSpace(SuccessMessage))
-                {
-                    <div class="alert alert-success" role="alert">@SuccessMessage</div>
-                }
-
                 @if (GeneratedCommands.Count == 0)
                 {
                     <p class="text-muted">Commands will appear here after a successful parse.</p>
@@ -93,8 +196,15 @@
     private string? ErrorMessage { get; set; }
     private string? SuccessMessage { get; set; }
     private List<ScpiCommand> GeneratedCommands { get; } = new();
+    private List<DeviceEditorViewModel> DeviceEditors { get; } = new();
+    private DeviceEditorViewModel? SelectedDevice { get; set; }
 
     private string GenerateButtonLabel => IsProcessing ? "Processing..." : "Generate commands";
+
+    protected override void OnInitialized()
+    {
+        InitializeDefaultEditors();
+    }
 
     private async Task OnFileSelectedAsync(InputFileChangeEventArgs args)
     {
@@ -107,16 +217,22 @@
         await using var stream = file.OpenReadStream(256 * 1024);
         using var reader = new StreamReader(stream);
         XmlContent = await reader.ReadToEndAsync();
-        SuccessMessage = $"Loaded configuration from '{file.Name}'.";
-        ErrorMessage = null;
+
+        GeneratedCommands.Clear();
+
+        if (TryParseConfiguration(XmlContent, out var configuration))
+        {
+            ApplyConfigurationToEditors(configuration!);
+            SuccessMessage = $"Loaded configuration from '{file.Name}' and applied it to the UI.";
+            ErrorMessage = null;
+        }
     }
 
     private Task GenerateCommandsAsync()
     {
-        if (string.IsNullOrWhiteSpace(XmlContent))
+        if (!TryParseConfiguration(XmlContent, out var configuration))
         {
-            ErrorMessage = "Please provide configuration XML before generating commands.";
-            SuccessMessage = null;
+            GeneratedCommands.Clear();
             return Task.CompletedTask;
         }
 
@@ -126,8 +242,8 @@
             ErrorMessage = null;
             SuccessMessage = null;
 
-            var configuration = Parser.Parse(XmlContent);
-            var commands = CommandGenerator.Generate(configuration);
+            ApplyConfigurationToEditors(configuration!);
+            var commands = CommandGenerator.Generate(configuration!);
 
             GeneratedCommands.Clear();
             GeneratedCommands.AddRange(commands);
@@ -158,7 +274,161 @@
     <Parameter name=""WAVE:TYPE"" value=""SINE"" />
   </Device>
 </Configuration>";
-        SuccessMessage = "Sample configuration loaded. Review and adjust as needed.";
+        GeneratedCommands.Clear();
+
+        if (TryParseConfiguration(XmlContent, out var configuration))
+        {
+            ApplyConfigurationToEditors(configuration!);
+            SuccessMessage = "Sample configuration loaded. Review and adjust as needed.";
+            ErrorMessage = null;
+        }
+    }
+
+    private void SyncEditorsFromXml()
+    {
+        GeneratedCommands.Clear();
+
+        if (!TryParseConfiguration(XmlContent, out var configuration))
+        {
+            return;
+        }
+
+        ApplyConfigurationToEditors(configuration!);
+        SuccessMessage = $"Applied configuration for {configuration.Devices.Count} device(s) to the UI.";
         ErrorMessage = null;
+    }
+
+    private void SyncEditorsToXml()
+    {
+        try
+        {
+            var document = new XDocument(
+                new XDeclaration("1.0", "utf-8", "yes"),
+                new XElement("Configuration", DeviceEditors.Select(editor => editor.ToXElement())));
+
+            XmlContent = document.ToString();
+            GeneratedCommands.Clear();
+            SuccessMessage = "Updated XML with the current UI values.";
+            ErrorMessage = null;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to generate configuration XML from the UI state.");
+            ErrorMessage = "Failed to build configuration XML from the current UI values.";
+            SuccessMessage = null;
+        }
+    }
+
+    private void ResetSelectedDevice()
+    {
+        if (SelectedDevice is null)
+        {
+            return;
+        }
+
+        SelectedDevice.ResetToDefaults();
+        GeneratedCommands.Clear();
+        SuccessMessage = $"Reset '{SelectedDevice.Name}' to default values.";
+        ErrorMessage = null;
+    }
+
+    private void ResetParameter(ParameterEditorViewModel parameter)
+    {
+        ArgumentNullException.ThrowIfNull(parameter);
+        parameter.ResetToDefault();
+    }
+
+    private void SelectDevice(DeviceEditorViewModel device)
+    {
+        ArgumentNullException.ThrowIfNull(device);
+        SelectedDevice = device;
+    }
+
+    private bool TryParseConfiguration(string? xmlContent, [NotNullWhen(true)] out HardwareConfiguration? configuration, bool reportIssues = true)
+    {
+        configuration = null;
+
+        if (string.IsNullOrWhiteSpace(xmlContent))
+        {
+            if (reportIssues)
+            {
+                ErrorMessage = "Please provide configuration XML before performing this action.";
+                SuccessMessage = null;
+            }
+
+            return false;
+        }
+
+        try
+        {
+            configuration = Parser.Parse(xmlContent);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to parse configuration XML.");
+
+            if (reportIssues)
+            {
+                ErrorMessage = ex.Message;
+                SuccessMessage = null;
+            }
+
+            return false;
+        }
+    }
+
+    private void ApplyConfigurationToEditors(HardwareConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+
+        foreach (var editor in DeviceEditors)
+        {
+            var matching = configuration.Devices.FirstOrDefault(editor.Represents);
+            editor.Apply(matching);
+        }
+
+        foreach (var device in configuration.Devices)
+        {
+            if (DeviceEditors.Any(editor => editor.Represents(device)))
+            {
+                continue;
+            }
+
+            DeviceEditors.Add(DeviceEditorViewModel.FromConfiguration(device));
+        }
+
+        SelectedDevice ??= DeviceEditors.FirstOrDefault();
+    }
+
+    private void InitializeDefaultEditors()
+    {
+        DeviceEditors.Clear();
+        DeviceEditors.Add(new DeviceEditorViewModel(
+            "VXG-C",
+            defaultSource: "SOUR1",
+            defaultFrequency: "1.2GHz",
+            defaultPower: "-10dBm",
+            defaultMode: "FDM",
+            parameters: new[]
+            {
+                new ParameterEditorViewModel("WAVE:TYPE", "SINE"),
+                new ParameterEditorViewModel("WAVE:FREQ", "1kHz"),
+                new ParameterEditorViewModel("WAVE:AMPL", "1.0")
+            }));
+
+        SelectedDevice = DeviceEditors.FirstOrDefault();
+    }
+
+    private string GetDeviceButtonClass(DeviceEditorViewModel device)
+    {
+        ArgumentNullException.ThrowIfNull(device);
+        var baseClass = "list-group-item list-group-item-action d-flex justify-content-between align-items-center slicer-sidebar-item";
+        return ReferenceEquals(device, SelectedDevice) ? $"{baseClass} active" : baseClass;
+    }
+
+    private static string FormatDefault(string value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "None" : value.Trim();
     }
 }
