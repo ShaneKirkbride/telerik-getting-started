@@ -2,186 +2,237 @@
 
 @using System
 @using System.Collections.Generic
+@using System.Diagnostics.CodeAnalysis
 @using System.IO
 @using System.Linq
-@using System.Diagnostics.CodeAnalysis
+@using System.Net.Http.Json
 @using System.Xml.Linq
-@using Microsoft.Extensions.Logging
+@using ConfigSetup.Web.Contracts
 @using ConfigSetup.Application.Configuration
 @using ConfigSetup.Application.Scpi
 @using ConfigSetup.Domain.Models
 @using ConfigSetup.Domain.Scpi
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.Extensions.Logging
+@using Microsoft.JSInterop
 @inject IXmlConfigurationParser Parser
 @inject IScpiCommandGenerator CommandGenerator
 @inject ILogger<Home> Logger
+@inject IHttpClientFactory HttpClientFactory
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JsRuntime
 
 <h1 class="mb-3">ConfigSetup</h1>
-<p class="text-muted">Load an XML configuration, validate it against the schema, inspect devices in a slicer-style editor, and review the generated SCPI command sequence.</p>
+<p class="text-muted">Use the menu bar to import XML, sync the slicer editor, or export the generated configuration.</p>
 
-@if (!string.IsNullOrWhiteSpace(ErrorMessage))
-{
-    <div class="alert alert-danger" role="alert">@ErrorMessage</div>
-}
-else if (!string.IsNullOrWhiteSpace(SuccessMessage))
-{
-    <div class="alert alert-success" role="alert">@SuccessMessage</div>
-}
+<InputFile @ref="HiddenFileInput" style="display:none" OnChange="OnFileSelectedAsync" accept=".xml" />
 
-<div class="row g-4 align-items-stretch">
-    <div class="col-12 col-xl-4">
-        <div class="card shadow-sm h-100">
-            <div class="card-header fw-semibold">Configuration XML</div>
-            <div class="card-body d-flex flex-column">
-                <p class="card-text">Upload an XML file, paste the configuration directly into the editor, or synchronize the UI with the XML.</p>
-                <InputFile OnChange="OnFileSelectedAsync" accept=".xml" class="form-control" />
-                <textarea class="form-control flex-grow-1 mt-3" rows="14" placeholder="Paste XML configuration here" @bind="XmlContent"></textarea>
-                <div class="d-flex flex-wrap justify-content-end mt-3 gap-2">
-                    <button class="btn btn-outline-secondary" @onclick="LoadSample">Load sample</button>
-                    <button class="btn btn-outline-primary" @onclick="SyncEditorsFromXml" disabled="@string.IsNullOrWhiteSpace(XmlContent)">Apply XML to UI</button>
-                    <button class="btn btn-primary" @onclick="GenerateCommandsAsync" disabled="@IsProcessing">@GenerateButtonLabel</button>
-                </div>
+<div class="menu-bar shadow-sm" @onmouseleave="CloseMenus" @onclick:stopPropagation="true">
+    <div class="menu">
+        <button type="button" class="menu-toggle @GetMenuToggleClass(MenuType.File)" @onclick="() => ToggleMenu(MenuType.File)">File</button>
+        @if (ActiveMenu == MenuType.File)
+        {
+            <div class="menu-dropdown">
+                <button type="button" @onclick="TriggerFilePickerAsync">Import XML...</button>
+                <button type="button" @onclick="OnLoadSampleClicked">Load sample configuration</button>
+                <div class="menu-divider"></div>
+                <button type="button" disabled="@(IsExporting || DeviceEditors.Count == 0)" @onclick="ExportXmlAsync">Export XML...</button>
             </div>
-        </div>
+        }
     </div>
-    <div class="col-12 col-xl-4">
-        <div class="card shadow-sm h-100 slicer-card">
-            <div class="card-header fw-semibold">Device editor</div>
-            <div class="card-body d-flex flex-column">
-                <p class="card-text">Choose a device and adjust its settings. Defaults are preserved even when XML omits values.</p>
-                <div class="row g-3 slicer-layout flex-grow-1">
-                    <div class="col-12 col-lg-5 col-xxl-4">
-                        <div class="slicer-sidebar h-100 border rounded-3">
-                            <div class="list-group list-group-flush slicer-sidebar-list">
-                                @foreach (var device in DeviceEditors)
-                                {
-                                    <button type="button" class="@GetDeviceButtonClass(device)" @onclick="() => SelectDevice(device)">
-                                        <span>@device.Name</span>
-                                        <span class="badge text-bg-light">@device.Parameters.Count</span>
-                                    </button>
-                                }
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-12 col-lg-7 col-xxl-8">
-                        @if (SelectedDevice is null)
-                        {
-                            <p class="text-muted">No device selected yet. Select a device from the list to begin editing.</p>
-                        }
-                        else
-                        {
-                            <div class="slicer-section mb-4">
-                                <h6 class="slicer-section-title">General</h6>
-                                <div class="row g-3">
-                                    <div class="col-sm-6">
-                                        <label class="form-label">Source</label>
-                                        <InputText class="form-control form-control-sm" @bind-Value="SelectedDevice.Source" @bind-Value:event="oninput" />
-                                        <div class="form-text">Default: <code>@FormatDefault(SelectedDevice.DefaultSource)</code></div>
-                                    </div>
-                                    <div class="col-sm-6">
-                                        <label class="form-label">Mode</label>
-                                        <InputText class="form-control form-control-sm" @bind-Value="SelectedDevice.Mode" @bind-Value:event="oninput" />
-                                        <div class="form-text">Default: <code>@FormatDefault(SelectedDevice.DefaultMode)</code></div>
-                                    </div>
-                                    <div class="col-sm-6">
-                                        <label class="form-label">Frequency</label>
-                                        <InputText class="form-control form-control-sm" @bind-Value="SelectedDevice.Frequency" @bind-Value:event="oninput" />
-                                        <div class="form-text">Default: <code>@FormatDefault(SelectedDevice.DefaultFrequency)</code></div>
-                                    </div>
-                                    <div class="col-sm-6">
-                                        <label class="form-label">Power</label>
-                                        <InputText class="form-control form-control-sm" @bind-Value="SelectedDevice.Power" @bind-Value:event="oninput" />
-                                        <div class="form-text">Default: <code>@FormatDefault(SelectedDevice.DefaultPower)</code></div>
-                                    </div>
+    <div class="menu">
+        <button type="button" class="menu-toggle @GetMenuToggleClass(MenuType.Edit)" @onclick="() => ToggleMenu(MenuType.Edit)">Edit</button>
+        @if (ActiveMenu == MenuType.Edit)
+        {
+            <div class="menu-dropdown">
+                <button type="button" @onclick="OnApplyXmlClicked" disabled="@string.IsNullOrWhiteSpace(XmlContent)">Apply XML to UI</button>
+                <button type="button" @onclick="OnUpdateXmlClicked" disabled="@(DeviceEditors.Count == 0)">Update XML from UI</button>
+                <div class="menu-divider"></div>
+                <button type="button" @onclick="OnResetDeviceClicked" disabled="@(SelectedDevice is null)">Reset selected device</button>
+            </div>
+        }
+    </div>
+    <div class="menu">
+        <button type="button" class="menu-toggle @GetMenuToggleClass(MenuType.View)" @onclick="() => ToggleMenu(MenuType.View)">View</button>
+        @if (ActiveMenu == MenuType.View)
+        {
+            <div class="menu-dropdown">
+                <button type="button" @onclick="ToggleXmlPreview">@(IsXmlPreviewVisible ? "Hide XML preview" : "Show XML preview")</button>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="page-body" @onclick="CloseMenus">
+    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@ErrorMessage</div>
+    }
+    else if (!string.IsNullOrWhiteSpace(SuccessMessage))
+    {
+        <div class="alert alert-success" role="alert">@SuccessMessage</div>
+    }
+
+    <div class="row g-4 align-items-stretch">
+        <div class="col-12 col-xl-7">
+            <div class="card shadow-sm h-100 slicer-card">
+                <div class="card-header fw-semibold">Device editor</div>
+                <div class="card-body d-flex flex-column">
+                    <p class="card-text">Choose a device and adjust its settings. Defaults are preserved even when XML omits values.</p>
+                    <div class="row g-3 slicer-layout flex-grow-1">
+                        <div class="col-12 col-lg-5 col-xxl-4">
+                            <div class="slicer-sidebar h-100 border rounded-3">
+                                <div class="list-group list-group-flush slicer-sidebar-list">
+                                    @foreach (var device in DeviceEditors)
+                                    {
+                                        <button type="button" class="@GetDeviceButtonClass(device)" @onclick="() => SelectDevice(device)">
+                                            <span>@device.Name</span>
+                                            <span class="badge text-bg-light">@device.Parameters.Count</span>
+                                        </button>
+                                    }
                                 </div>
                             </div>
-
-                            <div class="slicer-section">
-                                <h6 class="slicer-section-title">Parameters</h6>
-                                @if (SelectedDevice.Parameters.Count == 0)
-                                {
-                                    <p class="text-muted">No additional parameters have been defined for this device.</p>
-                                }
-                                else
-                                {
-                                    <div class="table-responsive slicer-parameter-table">
-                                        <table class="table table-sm align-middle mb-0">
-                                            <thead>
-                                                <tr>
-                                                    <th scope="col" style="width: 35%">Name</th>
-                                                    <th scope="col" style="width: 35%">Value</th>
-                                                    <th scope="col">Default</th>
-                                                    <th scope="col" class="text-end">Reset</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                @foreach (var parameter in SelectedDevice.Parameters)
-                                                {
-                                                    <tr>
-                                                        <th scope="row">@parameter.Name</th>
-                                                        <td>
-                                                            <InputText class="form-control form-control-sm" @bind-Value="parameter.Value" @bind-Value:event="oninput" />
-                                                        </td>
-                                                        <td class="text-muted small"><code>@FormatDefault(parameter.DefaultValue)</code></td>
-                                                        <td class="text-end">
-                                                            <button type="button" class="btn btn-link btn-sm" @onclick="() => ResetParameter(parameter)">Reset</button>
-                                                        </td>
-                                                    </tr>
-                                                }
-                                            </tbody>
-                                        </table>
+                        </div>
+                        <div class="col-12 col-lg-7 col-xxl-8">
+                            @if (SelectedDevice is null)
+                            {
+                                <p class="text-muted">No device selected yet. Select a device from the list to begin editing.</p>
+                            }
+                            else
+                            {
+                                <div class="slicer-section mb-4">
+                                    <h6 class="slicer-section-title">General</h6>
+                                    <div class="row g-3">
+                                        <div class="col-sm-6">
+                                            <label class="form-label">Arb</label>
+                                            <InputText class="form-control form-control-sm" @bind-Value="SelectedDevice.Source" @bind-Value:event="oninput" />
+                                            <div class="form-text">Default: <code>@FormatDefault(SelectedDevice.DefaultSource)</code></div>
+                                        </div>
+                                        <div class="col-sm-6">
+                                            <label class="form-label">Mode</label>
+                                            <InputText class="form-control form-control-sm" @bind-Value="SelectedDevice.Mode" @bind-Value:event="oninput" />
+                                            <div class="form-text">Default: <code>@FormatDefault(SelectedDevice.DefaultMode)</code></div>
+                                        </div>
+                                        <div class="col-sm-6">
+                                            <label class="form-label">Frequency</label>
+                                            <InputText class="form-control form-control-sm" @bind-Value="SelectedDevice.Frequency" @bind-Value:event="oninput" />
+                                            <div class="form-text">Default: <code>@FormatDefault(SelectedDevice.DefaultFrequency)</code></div>
+                                        </div>
+                                        <div class="col-sm-6">
+                                            <label class="form-label">Power</label>
+                                            <InputText class="form-control form-control-sm" @bind-Value="SelectedDevice.Power" @bind-Value:event="oninput" />
+                                            <div class="form-text">Default: <code>@FormatDefault(SelectedDevice.DefaultPower)</code></div>
+                                        </div>
                                     </div>
-                                }
-                            </div>
-                        }
+                                </div>
+
+                                <div class="slicer-section">
+                                    <h6 class="slicer-section-title">Parameters</h6>
+                                    @if (SelectedDevice.Parameters.Count == 0)
+                                    {
+                                        <p class="text-muted">No additional parameters have been defined for this device.</p>
+                                    }
+                                    else
+                                    {
+                                        <div class="table-responsive slicer-parameter-table">
+                                            <table class="table table-sm align-middle mb-0">
+                                                <thead>
+                                                    <tr>
+                                                        <th scope="col" style="width: 35%">Name</th>
+                                                        <th scope="col" style="width: 35%">Value</th>
+                                                        <th scope="col">Default</th>
+                                                        <th scope="col" class="text-end">Reset</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach (var parameter in SelectedDevice.Parameters)
+                                                    {
+                                                        <tr>
+                                                            <th scope="row">@parameter.Name</th>
+                                                            <td>
+                                                                <InputText class="form-control form-control-sm" @bind-Value="parameter.Value" @bind-Value:event="oninput" />
+                                                            </td>
+                                                            <td class="text-muted small"><code>@FormatDefault(parameter.DefaultValue)</code></td>
+                                                            <td class="text-end">
+                                                                <button type="button" class="btn btn-link btn-sm" @onclick="() => ResetParameter(parameter)">Reset</button>
+                                                            </td>
+                                                        </tr>
+                                                    }
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
                     </div>
-                </div>
-                <div class="d-flex justify-content-end gap-2 mt-4">
-                    <button class="btn btn-outline-secondary" type="button" @onclick="ResetSelectedDevice" disabled="@(SelectedDevice is null)">Reset device</button>
-                    <button class="btn btn-secondary" type="button" @onclick="SyncEditorsToXml" disabled="@(DeviceEditors.Count == 0)">Update XML</button>
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <button class="btn btn-outline-secondary" type="button" @onclick="ResetSelectedDevice" disabled="@(SelectedDevice is null)">Reset device</button>
+                        <button class="btn btn-secondary" type="button" @onclick="SyncEditorsToXml" disabled="@(DeviceEditors.Count == 0)">Update XML</button>
+                        <button class="btn btn-primary" @onclick="GenerateCommandsAsync" disabled="@IsProcessing">@GenerateButtonLabel</button>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-    <div class="col-12 col-xl-4">
-        <div class="card shadow-sm h-100">
-            <div class="card-header fw-semibold">SCPI Commands</div>
-            <div class="card-body d-flex flex-column">
-                @if (GeneratedCommands.Count == 0)
-                {
-                    <p class="text-muted">Commands will appear here after a successful parse.</p>
-                }
-                else
-                {
-                    <div class="table-responsive flex-grow-1">
-                        <table class="table table-sm table-striped">
-                            <thead>
-                                <tr>
-                                    <th scope="col" style="width:6rem">#</th>
-                                    <th scope="col">Command</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var entry in GeneratedCommands.Select((command, index) => new { command, index }))
-                                {
+        <div class="col-12 col-xl-5">
+            <div class="card shadow-sm h-100">
+                <div class="card-header fw-semibold">SCPI Commands</div>
+                <div class="card-body d-flex flex-column">
+                    @if (GeneratedCommands.Count == 0)
+                    {
+                        <p class="text-muted">Commands will appear here after a successful parse.</p>
+                    }
+                    else
+                    {
+                        <div class="table-responsive flex-grow-1">
+                            <table class="table table-sm table-striped">
+                                <thead>
                                     <tr>
-                                        <th scope="row">@(entry.index + 1)</th>
-                                        <td><code>@entry.command.Text</code></td>
+                                        <th scope="col" style="width:6rem">#</th>
+                                        <th scope="col">Command</th>
                                     </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                }
+                                </thead>
+                                <tbody>
+                                    @foreach (var entry in GeneratedCommands.Select((command, index) => new { command, index }))
+                                    {
+                                        <tr>
+                                            <th scope="row">@(entry.index + 1)</th>
+                                            <td><code>@entry.command.Text</code></td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
             </div>
         </div>
     </div>
 </div>
 
+@if (IsXmlPreviewVisible)
+{
+    <div class="card shadow-sm mt-4">
+        <div class="card-header fw-semibold">XML preview</div>
+        <div class="card-body">
+            @if (string.IsNullOrWhiteSpace(XmlContent))
+            {
+                <p class="text-muted mb-0">No XML has been imported or generated yet.</p>
+            }
+            else
+            {
+                <pre class="xml-preview">@XmlContent</pre>
+            }
+        </div>
+    </div>
+}
+
 <details class="mt-4">
     <summary class="fw-semibold">Schema summary</summary>
     <p class="mb-1">The configuration must follow the embedded schema:</p>
     <pre class="bg-body-tertiary p-3 small">&lt;Configuration&gt;
-  &lt;Device name="VXG-C" source="SOUR1"&gt;
+  &lt;Device name="Arb" source="Arb"&gt;
     &lt;Frequency&gt;1.2GHz&lt;/Frequency&gt;
     &lt;Power&gt;-10dBm&lt;/Power&gt;
     &lt;Mode&gt;FDM&lt;/Mode&gt;
@@ -193,17 +244,32 @@ else if (!string.IsNullOrWhiteSpace(SuccessMessage))
 @code {
     private string? XmlContent { get; set; }
     private bool IsProcessing { get; set; }
+    private bool IsExporting { get; set; }
     private string? ErrorMessage { get; set; }
     private string? SuccessMessage { get; set; }
     private List<ScpiCommand> GeneratedCommands { get; } = new();
     private List<DeviceEditorViewModel> DeviceEditors { get; } = new();
     private DeviceEditorViewModel? SelectedDevice { get; set; }
+    private InputFile? HiddenFileInput { get; set; }
+    private MenuType? ActiveMenu { get; set; }
+    private bool IsXmlPreviewVisible { get; set; }
 
     private string GenerateButtonLabel => IsProcessing ? "Processing..." : "Generate commands";
 
     protected override void OnInitialized()
     {
         InitializeDefaultEditors();
+    }
+
+    private async Task TriggerFilePickerAsync()
+    {
+        if (HiddenFileInput is null)
+        {
+            return;
+        }
+
+        await JsRuntime.InvokeVoidAsync("configSetup.triggerFilePicker", HiddenFileInput.Element);
+        CloseMenus();
     }
 
     private async Task OnFileSelectedAsync(InputFileChangeEventArgs args)
@@ -219,12 +285,61 @@ else if (!string.IsNullOrWhiteSpace(SuccessMessage))
         XmlContent = await reader.ReadToEndAsync();
 
         GeneratedCommands.Clear();
+        ErrorMessage = null;
+        SuccessMessage = null;
 
         if (TryParseConfiguration(XmlContent, out var configuration))
         {
             ApplyConfigurationToEditors(configuration!);
             SuccessMessage = $"Loaded configuration from '{file.Name}' and applied it to the UI.";
             ErrorMessage = null;
+        }
+
+        CloseMenus();
+    }
+
+    private async Task ExportXmlAsync()
+    {
+        try
+        {
+            IsExporting = true;
+            ErrorMessage = null;
+            SuccessMessage = null;
+
+            var request = BuildExportRequest();
+
+            var client = HttpClientFactory.CreateClient();
+            if (client.BaseAddress is null)
+            {
+                client.BaseAddress = new Uri(NavigationManager.BaseUri);
+            }
+
+            var response = await client.PostAsJsonAsync("api/config/export", request);
+            if (!response.IsSuccessStatusCode)
+            {
+                Logger.LogWarning("Export endpoint returned {StatusCode}", response.StatusCode);
+                ErrorMessage = "Unable to export configuration. Review the current settings and try again.";
+                SuccessMessage = null;
+                return;
+            }
+
+            var xml = await response.Content.ReadAsStringAsync();
+            XmlContent = xml;
+            await JsRuntime.InvokeVoidAsync("configSetup.downloadFile", $"configuration-{DateTime.UtcNow:yyyyMMddHHmmss}.xml", xml);
+
+            SuccessMessage = "Exported configuration as XML.";
+            ErrorMessage = null;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to export configuration.");
+            ErrorMessage = "An unexpected error occurred while exporting the configuration.";
+            SuccessMessage = null;
+        }
+        finally
+        {
+            IsExporting = false;
+            CloseMenus();
         }
     }
 
@@ -264,10 +379,34 @@ else if (!string.IsNullOrWhiteSpace(SuccessMessage))
         return Task.CompletedTask;
     }
 
+    private void OnLoadSampleClicked()
+    {
+        LoadSample();
+        CloseMenus();
+    }
+
+    private void OnApplyXmlClicked()
+    {
+        SyncEditorsFromXml();
+        CloseMenus();
+    }
+
+    private void OnUpdateXmlClicked()
+    {
+        SyncEditorsToXml();
+        CloseMenus();
+    }
+
+    private void OnResetDeviceClicked()
+    {
+        ResetSelectedDevice();
+        CloseMenus();
+    }
+
     private void LoadSample()
     {
         XmlContent = @"<Configuration>
-  <Device name=""VXG-C"" source=""SOUR1"">
+  <Device name=""Arb"" source=""Arb"">
     <Frequency>1.2GHz</Frequency>
     <Power>-10dBm</Power>
     <Mode>FDM</Mode>
@@ -302,11 +441,7 @@ else if (!string.IsNullOrWhiteSpace(SuccessMessage))
     {
         try
         {
-            var document = new XDocument(
-                new XDeclaration("1.0", "utf-8", "yes"),
-                new XElement("Configuration", DeviceEditors.Select(editor => editor.ToXElement())));
-
-            XmlContent = document.ToString();
+            XmlContent = BuildXmlFromEditors();
             GeneratedCommands.Clear();
             SuccessMessage = "Updated XML with the current UI values.";
             ErrorMessage = null;
@@ -317,6 +452,61 @@ else if (!string.IsNullOrWhiteSpace(SuccessMessage))
             ErrorMessage = "Failed to build configuration XML from the current UI values.";
             SuccessMessage = null;
         }
+    }
+
+    private string BuildXmlFromEditors()
+    {
+        var document = new XDocument(
+            new XDeclaration("1.0", "utf-8", "yes"),
+            new XElement("Configuration", DeviceEditors.Select(editor => editor.ToXElement())));
+
+        return document.ToString();
+    }
+
+    private ExportConfigurationRequest BuildExportRequest()
+    {
+        var request = new ExportConfigurationRequest();
+
+        foreach (var editor in DeviceEditors)
+        {
+            var device = new ExportDeviceRequest
+            {
+                Name = editor.Name,
+                Source = CurrentOrDefault(editor.Source, editor.DefaultSource),
+                Frequency = CurrentOrDefault(editor.Frequency, editor.DefaultFrequency),
+                Power = CurrentOrDefault(editor.Power, editor.DefaultPower),
+                Mode = CurrentOrDefault(editor.Mode, editor.DefaultMode)
+            };
+
+            foreach (var parameter in editor.Parameters)
+            {
+                device.Parameters.Add(new ExportParameterRequest
+                {
+                    Name = parameter.Name,
+                    Value = parameter.ValueOrDefault
+                });
+            }
+
+            request.Devices.Add(device);
+        }
+
+        return request;
+    }
+
+    private void ToggleXmlPreview()
+    {
+        IsXmlPreviewVisible = !IsXmlPreviewVisible;
+        CloseMenus();
+    }
+
+    private void CloseMenus()
+    {
+        ActiveMenu = null;
+    }
+
+    private void ToggleMenu(MenuType menu)
+    {
+        ActiveMenu = ActiveMenu == menu ? null : menu;
     }
 
     private void ResetSelectedDevice()
@@ -405,8 +595,8 @@ else if (!string.IsNullOrWhiteSpace(SuccessMessage))
     {
         DeviceEditors.Clear();
         DeviceEditors.Add(new DeviceEditorViewModel(
-            "VXG-C",
-            defaultSource: "SOUR1",
+            "Arb",
+            defaultSource: "Arb",
             defaultFrequency: "1.2GHz",
             defaultPower: "-10dBm",
             defaultMode: "FDM",
@@ -427,8 +617,26 @@ else if (!string.IsNullOrWhiteSpace(SuccessMessage))
         return ReferenceEquals(device, SelectedDevice) ? $"{baseClass} active" : baseClass;
     }
 
+    private string GetMenuToggleClass(MenuType menu)
+    {
+        return ActiveMenu == menu ? "active" : string.Empty;
+    }
+
     private static string FormatDefault(string value)
     {
         return string.IsNullOrWhiteSpace(value) ? "None" : value.Trim();
+    }
+
+    private static string? CurrentOrDefault(string? value, string defaultValue)
+    {
+        var content = string.IsNullOrWhiteSpace(value) ? defaultValue : value.Trim();
+        return string.IsNullOrWhiteSpace(content) ? null : content;
+    }
+
+    private enum MenuType
+    {
+        File,
+        Edit,
+        View
     }
 }

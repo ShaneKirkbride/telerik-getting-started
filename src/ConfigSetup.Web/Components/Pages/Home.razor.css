@@ -1,0 +1,64 @@
+.menu-bar {
+    display: flex;
+    gap: 0.5rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    background-color: var(--bs-body-bg);
+    margin-bottom: 1.5rem;
+}
+
+.menu {
+    position: relative;
+}
+
+.menu-toggle {
+    border: none;
+    background: none;
+    padding: 0.35rem 0.75rem;
+    border-radius: 0.35rem;
+    font-weight: 500;
+}
+
+.menu-toggle:hover,
+.menu-toggle.active {
+    background-color: var(--bs-primary-bg-subtle);
+    color: var(--bs-primary-text);
+}
+
+.menu-dropdown {
+    position: absolute;
+    top: calc(100% + 0.25rem);
+    left: 0;
+    min-width: 14rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.5rem;
+    background-color: var(--bs-body-bg);
+    box-shadow: var(--bs-box-shadow);
+    z-index: 1050;
+    padding: 0.5rem 0;
+}
+
+.menu-dropdown button {
+    width: 100%;
+    text-align: left;
+    padding: 0.4rem 1rem;
+    background: none;
+    border: none;
+}
+
+.menu-dropdown button:hover {
+    background-color: var(--bs-secondary-bg);
+}
+
+.menu-divider {
+    height: 1px;
+    background-color: var(--bs-border-color);
+    margin: 0.35rem 0;
+}
+
+.xml-preview {
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: var(--bs-font-monospace);
+}
