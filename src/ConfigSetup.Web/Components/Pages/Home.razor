@@ -111,13 +111,13 @@
         ErrorMessage = null;
     }
 
-    private async Task GenerateCommandsAsync()
+    private Task GenerateCommandsAsync()
     {
         if (string.IsNullOrWhiteSpace(XmlContent))
         {
             ErrorMessage = "Please provide configuration XML before generating commands.";
             SuccessMessage = null;
-            return;
+            return Task.CompletedTask;
         }
 
         try
@@ -144,20 +144,20 @@
         {
             IsProcessing = false;
         }
+
+        return Task.CompletedTask;
     }
 
     private void LoadSample()
     {
-        XmlContent = """
-<Configuration>
-  <Device name="VXG-C" source="SOUR1">
+        XmlContent = @"<Configuration>
+  <Device name=""VXG-C"" source=""SOUR1"">
     <Frequency>1.2GHz</Frequency>
     <Power>-10dBm</Power>
     <Mode>FDM</Mode>
-    <Parameter name="WAVE:TYPE" value="SINE" />
+    <Parameter name=""WAVE:TYPE"" value=""SINE"" />
   </Device>
-</Configuration>
-""";
+</Configuration>";
         SuccessMessage = "Sample configuration loaded. Review and adjust as needed.";
         ErrorMessage = null;
     }
