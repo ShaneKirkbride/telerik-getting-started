@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-
 using System.Reflection;
 using System.Xml.Schema;
 
@@ -16,7 +15,9 @@ public static class ConfigurationSchemaProvider
     public static XmlSchemaSet CreateSchemaSet()
     {
         using var stream = OpenSchemaStream();
-        var schema = XmlSchema.Read(stream, null);
+        var schema = XmlSchema.Read(stream, null)
+            ?? throw new InvalidOperationException($"Failed to read the XML schema resource '{ResourceName}'.");
+
         var schemaSet = new XmlSchemaSet();
         schemaSet.Add(schema);
         schemaSet.Compile();

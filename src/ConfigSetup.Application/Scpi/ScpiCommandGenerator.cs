@@ -40,11 +40,7 @@ public sealed class ScpiCommandGenerator : IScpiCommandGenerator
                     continue;
                 }
 
-                var commandText = name.Contains(':', StringComparison.Ordinal)
-                    ? $"{name} {value}".Trim()
-                    : $"{source}:{name} {value}".Trim();
-
-                commands.Add(new ScpiCommand(commandText));
+                commands.Add(new ScpiCommand(BuildParameterCommand(source, name, value)));
             }
         }
 
@@ -59,6 +55,49 @@ public sealed class ScpiCommandGenerator : IScpiCommandGenerator
             return;
         }
 
-        commands.Add(new ScpiCommand($"{source}:{command} {value}".Trim()));
+        var sanitizedValue = value.Trim();
+        commands.Add(new ScpiCommand($"{source}:{command} {sanitizedValue}".Trim()));
+    }
+
+    private static string BuildParameterCommand(string source, string name, string value)
+    {
+        if (!name.Contains(':', StringComparison.Ordinal))
+        {
+            return $"{source}:{name} {value}".Trim();
+        }
+
+        return IsFullyQualifiedForSource(name, source)
+            ? $"{name} {value}".Trim()
+            : $"{source}:{name} {value}".Trim();
+    }
+
+    private static bool IsFullyQualifiedForSource(string name, string source)
+    {
+        var separatorIndex = name.IndexOf(':');
+        if (separatorIndex < 0)
+        {
+            return false;
+        }
+
+        var qualifier = name[..separatorIndex];
+        if (qualifier.Equals(source, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (qualifier.StartsWith("SOUR", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        foreach (var character in qualifier)
+        {
+            if (char.IsDigit(character))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
