@@ -13,6 +13,7 @@ var serviceHostOptions = builder.Configuration
     .Get<ServiceHostOptions>() ?? new ServiceHostOptions();
 
 HostEnvironmentConfigurator.Configure(builder, serviceHostOptions);
+builder.Services.Configure<ServiceHostOptions>(builder.Configuration.GetSection(ServiceHostOptions.SectionName));
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
@@ -21,6 +22,7 @@ builder.Services.AddSingleton(ConfigurationSchemaProvider.CreateSchemaSet());
 builder.Services.AddSingleton<IXmlConfigurationParser, XmlConfigurationParser>();
 builder.Services.AddSingleton<IScpiCommandGenerator, ScpiCommandGenerator>();
 builder.Services.AddSingleton<ConfigurationExportService>();
+builder.Services.AddHostedService<BrowserLaunchHostedService>();
 
 var app = builder.Build();
 

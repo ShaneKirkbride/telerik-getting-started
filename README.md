@@ -47,6 +47,7 @@ The `ConfigSetup.Web` host wires into the ASP.NET Core Windows Service and syste
   "EnableWindowsServiceIntegration": true,
   "EnableSystemdIntegration": true,
   "EnableHttpsRedirection": true,
+  "AutoLaunchBrowser": true,
   "HttpPort": 5125,
   "HttpsPort": 7125
 }
@@ -54,6 +55,7 @@ The `ConfigSetup.Web` host wires into the ASP.NET Core Windows Service and syste
 
 * Toggle the integration flags off when you want to run the executable strictly as a desktop app.
 * When running behind an upstream reverse proxy, disable `EnableHttpsRedirection` to prevent redirect loops.
+* Leave `AutoLaunchBrowser` enabled so the executable automatically opens your default browser when it runs interactively. Turn it off if the app should only listen in the background.
 * Provide `HttpPort` and/or `HttpsPort` values to pin the ports when running as a background service; otherwise Kestrel falls back to ASP.NET Core defaults.
 
 ## Testing

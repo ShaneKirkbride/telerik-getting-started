@@ -32,4 +32,9 @@ public sealed record ServiceHostOptions
     ///     Toggle HTTP -> HTTPS redirects when the app is fronted by another reverse proxy.
     /// </summary>
     public bool EnableHttpsRedirection { get; init; } = true;
+
+    /// <summary>
+    ///     Automatically opens the system browser when the executable is launched interactively.
+    /// </summary>
+    public bool AutoLaunchBrowser { get; init; } = true;
 }
