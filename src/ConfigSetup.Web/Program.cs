@@ -3,9 +3,16 @@ using ConfigSetup.Application.Scpi;
 using ConfigSetup.Domain.Schemas;
 using ConfigSetup.Web.Components;
 using ConfigSetup.Web.Contracts;
+using ConfigSetup.Web.Hosting;
 using ConfigSetup.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+
+var serviceHostOptions = builder.Configuration
+    .GetSection(ServiceHostOptions.SectionName)
+    .Get<ServiceHostOptions>() ?? new ServiceHostOptions();
+
+HostEnvironmentConfigurator.Configure(builder, serviceHostOptions);
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
@@ -24,7 +31,10 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+if (serviceHostOptions.EnableHttpsRedirection)
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseStaticFiles();
 app.UseAntiforgery();
