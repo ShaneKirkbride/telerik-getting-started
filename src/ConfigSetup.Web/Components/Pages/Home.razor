@@ -1,0 +1,220 @@
+@page "/"
+
+<h1 class="mb-3">ConfigSetup</h1>
+<p class="text-muted">Use the menu bar to import XML, sync the slicer editor, or export the generated configuration.</p>
+
+<InputFile @ref="HiddenFileInput" style="display:none" OnChange="OnFileSelectedAsync" accept=".xml" />
+
+<div class="menu-bar shadow-sm" @onmouseleave="CloseMenus" @onclick:stopPropagation="true">
+    <div class="menu">
+        <button type="button" class="menu-toggle @GetMenuToggleClass(MenuType.File)" @onclick="() => ToggleMenu(MenuType.File)">File</button>
+        @if (ActiveMenu == MenuType.File)
+        {
+            <div class="menu-dropdown">
+                <button type="button" @onclick="TriggerFilePickerAsync">Import XML...</button>
+                <button type="button" @onclick="OnLoadSampleClicked">Load sample configuration</button>
+                <div class="menu-divider"></div>
+                <button type="button" disabled="@(IsExporting || DeviceEditors.Count == 0)" @onclick="ExportXmlAsync">Export XML...</button>
+            </div>
+        }
+    </div>
+    <div class="menu">
+        <button type="button" class="menu-toggle @GetMenuToggleClass(MenuType.Edit)" @onclick="() => ToggleMenu(MenuType.Edit)">Edit</button>
+        @if (ActiveMenu == MenuType.Edit)
+        {
+            <div class="menu-dropdown">
+                <button type="button" @onclick="OnApplyXmlClicked" disabled="@string.IsNullOrWhiteSpace(XmlContent)">Apply XML to UI</button>
+                <button type="button" @onclick="OnUpdateXmlClicked" disabled="@(DeviceEditors.Count == 0)">Update XML from UI</button>
+                <div class="menu-divider"></div>
+                <button type="button" @onclick="OnResetDeviceClicked" disabled="@(SelectedDevice is null)">Reset selected device</button>
+            </div>
+        }
+    </div>
+    <div class="menu">
+        <button type="button" class="menu-toggle @GetMenuToggleClass(MenuType.View)" @onclick="() => ToggleMenu(MenuType.View)">View</button>
+        @if (ActiveMenu == MenuType.View)
+        {
+            <div class="menu-dropdown">
+                <button type="button" @onclick="ToggleXmlPreview">@(IsXmlPreviewVisible ? "Hide XML preview" : "Show XML preview")</button>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="page-body" @onclick="CloseMenus">
+    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@ErrorMessage</div>
+    }
+    else if (!string.IsNullOrWhiteSpace(SuccessMessage))
+    {
+        <div class="alert alert-success" role="alert">@SuccessMessage</div>
+    }
+
+    <div class="row g-4 align-items-stretch">
+        <div class="col-12 col-xl-7">
+            <div class="card shadow-sm h-100 slicer-card">
+                <div class="card-header fw-semibold">Device editor</div>
+                <div class="card-body d-flex flex-column">
+                    <p class="card-text">Choose a device and adjust its settings. Defaults are preserved even when XML omits values.</p>
+                    <div class="row g-3 slicer-layout flex-grow-1">
+                        <div class="col-12 col-lg-5 col-xxl-4">
+                            <div class="slicer-sidebar h-100 border rounded-3">
+                                <div class="list-group list-group-flush slicer-sidebar-list">
+                                    @foreach (var device in DeviceEditors)
+                                    {
+                                        <button type="button" class="@GetDeviceButtonClass(device)" @onclick="() => SelectDevice(device)">
+                                            <span>@device.Name</span>
+                                            <span class="badge text-bg-light">@device.Parameters.Count</span>
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-7 col-xxl-8">
+                            @if (SelectedDevice is null)
+                            {
+                                <p class="text-muted">No device selected yet. Select a device from the list to begin editing.</p>
+                            }
+                            else
+                            {
+                                <div class="slicer-section mb-4">
+                                    <h6 class="slicer-section-title">General</h6>
+                                    <div class="row g-3">
+                                        <div class="col-sm-6">
+                                            <label class="form-label">Arb</label>
+                                            <InputText class="form-control form-control-sm" @bind-Value="SelectedDevice.Source" @bind-Value:event="oninput" />
+                                            <div class="form-text">Default: <code>@FormatDefault(SelectedDevice.DefaultSource)</code></div>
+                                        </div>
+                                        <div class="col-sm-6">
+                                            <label class="form-label">Mode</label>
+                                            <InputText class="form-control form-control-sm" @bind-Value="SelectedDevice.Mode" @bind-Value:event="oninput" />
+                                            <div class="form-text">Default: <code>@FormatDefault(SelectedDevice.DefaultMode)</code></div>
+                                        </div>
+                                        <div class="col-sm-6">
+                                            <label class="form-label">Frequency</label>
+                                            <InputText class="form-control form-control-sm" @bind-Value="SelectedDevice.Frequency" @bind-Value:event="oninput" />
+                                            <div class="form-text">Default: <code>@FormatDefault(SelectedDevice.DefaultFrequency)</code></div>
+                                        </div>
+                                        <div class="col-sm-6">
+                                            <label class="form-label">Power</label>
+                                            <InputText class="form-control form-control-sm" @bind-Value="SelectedDevice.Power" @bind-Value:event="oninput" />
+                                            <div class="form-text">Default: <code>@FormatDefault(SelectedDevice.DefaultPower)</code></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="slicer-section">
+                                    <h6 class="slicer-section-title">Parameters</h6>
+                                    @if (SelectedDevice.Parameters.Count == 0)
+                                    {
+                                        <p class="text-muted">No additional parameters have been defined for this device.</p>
+                                    }
+                                    else
+                                    {
+                                        <div class="table-responsive slicer-parameter-table">
+                                            <table class="table table-sm align-middle mb-0">
+                                                <thead>
+                                                    <tr>
+                                                        <th scope="col" style="width: 35%">Name</th>
+                                                        <th scope="col" style="width: 35%">Value</th>
+                                                        <th scope="col">Default</th>
+                                                        <th scope="col" class="text-end">Reset</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach (var parameter in SelectedDevice.Parameters)
+                                                    {
+                                                        <tr>
+                                                            <th scope="row">@parameter.Name</th>
+                                                            <td>
+                                                                <InputText class="form-control form-control-sm" @bind-Value="parameter.Value" @bind-Value:event="oninput" />
+                                                            </td>
+                                                            <td class="text-muted small"><code>@FormatDefault(parameter.DefaultValue)</code></td>
+                                                            <td class="text-end">
+                                                                <button type="button" class="btn btn-link btn-sm" @onclick="() => ResetParameter(parameter)">Reset</button>
+                                                            </td>
+                                                        </tr>
+                                                    }
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <button class="btn btn-outline-secondary" type="button" @onclick="ResetSelectedDevice" disabled="@(SelectedDevice is null)">Reset device</button>
+                        <button class="btn btn-secondary" type="button" @onclick="SyncEditorsToXml" disabled="@(DeviceEditors.Count == 0)">Update XML</button>
+                        <button class="btn btn-primary" @onclick="GenerateCommandsAsync" disabled="@IsProcessing">@GenerateButtonLabel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-xl-5">
+            <div class="card shadow-sm h-100">
+                <div class="card-header fw-semibold">SCPI Commands</div>
+                <div class="card-body d-flex flex-column">
+                    @if (GeneratedCommands.Count == 0)
+                    {
+                        <p class="text-muted">Commands will appear here after a successful parse.</p>
+                    }
+                    else
+                    {
+                        <div class="table-responsive flex-grow-1">
+                            <table class="table table-sm table-striped">
+                                <thead>
+                                    <tr>
+                                        <th scope="col" style="width:6rem">#</th>
+                                        <th scope="col">Command</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var entry in GeneratedCommands.Select((command, index) => new { command, index }))
+                                    {
+                                        <tr>
+                                            <th scope="row">@(entry.index + 1)</th>
+                                            <td><code>@entry.command.Text</code></td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (IsXmlPreviewVisible)
+{
+    <div class="card shadow-sm mt-4">
+        <div class="card-header fw-semibold">XML preview</div>
+        <div class="card-body">
+            @if (string.IsNullOrWhiteSpace(XmlContent))
+            {
+                <p class="text-muted mb-0">No XML has been imported or generated yet.</p>
+            }
+            else
+            {
+                <pre class="xml-preview">@XmlContent</pre>
+            }
+        </div>
+    </div>
+}
+
+<details class="mt-4">
+    <summary class="fw-semibold">Schema summary</summary>
+    <p class="mb-1">The configuration must follow the embedded schema:</p>
+    <pre class="bg-body-tertiary p-3 small">&lt;Configuration&gt;
+  &lt;Device name="Arb" source="Arb"&gt;
+    &lt;Frequency&gt;1.2GHz&lt;/Frequency&gt;
+    &lt;Power&gt;-10dBm&lt;/Power&gt;
+    &lt;Mode&gt;FDM&lt;/Mode&gt;
+    &lt;Parameter name="WAVE:TYPE" value="SINE" /&gt;
+  &lt;/Device&gt;
+&lt;/Configuration&gt;</pre>
+</details>
+
