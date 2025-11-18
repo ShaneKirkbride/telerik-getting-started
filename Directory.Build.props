@@ -1,6 +1,13 @@
 <Project>
   <PropertyGroup>
-    <TargetFrameworks Condition="'$(TargetFramework)' == '' and '$(TargetFrameworks)' == ''">net8.0</TargetFrameworks>
-    <TargetFrameworks Condition="'$(TargetFramework)' == '' and '$(TargetFrameworks)' == 'net8.0' and '$(NETCoreSdkVersion)' != '' and $([MSBuild]::VersionGreaterThanOrEquals($([System.String]::Copy('$(NETCoreSdkVersion)').Split('-')[0]), '9.0.100'))">net8.0;net9.0</TargetFrameworks>
+    <!--
+      Visual Studio design-time builds require a concrete TargetFramework value to compute
+      derived properties such as TargetPath. When we only set TargetFrameworks (even with a
+      single entry) the IDE cannot determine an absolute TargetPath and loads the project in
+      a "limited functionality" mode. We therefore default to TargetFramework=net8.0 and only
+      opt-in to multi-targeting (TargetFrameworks) when a new enough SDK is present.
+    -->
+    <TargetFrameworks Condition="'$(TargetFramework)' == '' and '$(TargetFrameworks)' == '' and '$(NETCoreSdkVersion)' != '' and $([MSBuild]::VersionGreaterThanOrEquals($([System.String]::Copy('$(NETCoreSdkVersion)').Split('-')[0]), '9.0.100'))">net8.0;net9.0</TargetFrameworks>
+    <TargetFramework Condition="'$(TargetFramework)' == '' and '$(TargetFrameworks)' == ''">net8.0</TargetFramework>
   </PropertyGroup>
 </Project>
