@@ -1,6 +1,6 @@
 # ConfigSetup
 
-ConfigSetup is a lightweight Blazor Server application that ingests instrument configuration XML, validates it against an embedded schema, and produces SCPI command sequences for review.
+ConfigSetup is a lightweight **Blazor-only** (no MAUI dependencies) server application that ingests instrument configuration XML, validates it against an embedded schema, and produces SCPI command sequences for review.
 
 ## Solution layout
 
@@ -40,7 +40,25 @@ dotnet run --project src/ConfigSetup.Web/ConfigSetup.Web.csproj
      /p:PublishTrimmed=false
    ```
 
-3. Copy the generated file from `src/ConfigSetup.Web/bin/Release/net8.0/win-x64/publish/` to your desktop and launch it directly.
+3. Copy the generated file from `src/ConfigSetup.Web/bin/Release/net8.0/win-x64/publish/` to your desktop and launch it directly. The executable self-hosts Kestrel, so no MAUI WebView or native shell is required.
+
+## Hosting as a Windows service or Linux systemd unit
+
+The `ConfigSetup.Web` host wires into the ASP.NET Core Windows Service and systemd integrations so the exact same binaries can run unattended inside a larger framework. The behavior is controlled through the `ServiceHost` section in `appsettings.json`:
+
+```json
+"ServiceHost": {
+  "EnableWindowsServiceIntegration": true,
+  "EnableSystemdIntegration": true,
+  "EnableHttpsRedirection": true,
+  "HttpPort": 5125,
+  "HttpsPort": 7125
+}
+```
+
+* Toggle the integration flags off when you want to run the executable strictly as a desktop app.
+* When running behind an upstream reverse proxy, disable `EnableHttpsRedirection` to prevent redirect loops.
+* Provide `HttpPort` and/or `HttpsPort` values to pin the ports when running as a background service; otherwise Kestrel falls back to ASP.NET Core defaults.
 
 ## Testing
 
