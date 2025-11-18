@@ -64,8 +64,12 @@
                                     @foreach (var device in DeviceEditors)
                                     {
                                         <button type="button" class="@GetDeviceButtonClass(device)" @onclick="() => SelectDevice(device)">
-                                            <span>@device.Name</span>
-                                            <span class="badge text-bg-light">@device.Parameters.Count</span>
+                                            <div class="slicer-sidebar-item-title">@device.Name</div>
+                                            <div class="slicer-sidebar-item-meta">
+                                                <span>Source: <strong>@FormatDefault(CurrentOrDefault(device.Source, device.DefaultSource) ?? string.Empty)</strong></span>
+                                                <span>Mode: <strong>@FormatDefault(CurrentOrDefault(device.Mode, device.DefaultMode) ?? string.Empty)</strong></span>
+                                            </div>
+                                            <span class="badge text-bg-light" aria-label="Parameter count">@device.Parameters.Count</span>
                                         </button>
                                     }
                                 </div>
@@ -78,11 +82,28 @@
                             }
                             else
                             {
-                                <div class="slicer-section mb-4">
-                                    <h6 class="slicer-section-title">General</h6>
-                                    <div class="row g-3">
-                                        <div class="col-sm-6">
-                                            <label class="form-label">Arb</label>
+                                <div class="device-editor-panel">
+                                    <div class="device-editor-toolbar">
+                                        <div>
+                                            <p class="device-editor-label">Selected source</p>
+                                            <h5 class="mb-1">@SelectedDevice.Name</h5>
+                                            <p class="text-muted small mb-0">Customize parameters for <strong>@FormatDefault(CurrentOrDefault(SelectedDevice.Source, SelectedDevice.DefaultSource) ?? string.Empty)</strong>.</p>
+                                        </div>
+                                        <div class="btn-toolbar gap-2 flex-wrap" role="group" aria-label="Upload actions">
+                                            <button class="btn btn-outline-primary btn-sm" type="button" disabled="@IsUploading" @onclick="UploadSelectedSourceAsync">
+                                                @(IsUploading ? "Uploading..." : "Upload source")
+                                            </button>
+                                            <button class="btn btn-primary btn-sm" type="button" disabled="@(IsUploading || DeviceEditors.Count == 0)" @onclick="UploadAllSourcesAsync">
+                                                @(IsUploading ? "Uploading..." : "Upload all sources")
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div class="slicer-section mb-4">
+                                        <h6 class="slicer-section-title">General</h6>
+                                        <div class="row g-3">
+                                            <div class="col-sm-6">
+                                                <label class="form-label">Arb</label>
                                             <InputText class="form-control form-control-sm" @bind-Value="SelectedDevice.Source" @bind-Value:event="oninput" />
                                             <div class="form-text">Default: <code>@FormatDefault(SelectedDevice.DefaultSource)</code></div>
                                         </div>
@@ -101,11 +122,11 @@
                                             <InputText class="form-control form-control-sm" @bind-Value="SelectedDevice.Power" @bind-Value:event="oninput" />
                                             <div class="form-text">Default: <code>@FormatDefault(SelectedDevice.DefaultPower)</code></div>
                                         </div>
+                                        </div>
                                     </div>
-                                </div>
 
-                                <div class="slicer-section">
-                                    <h6 class="slicer-section-title">Parameters</h6>
+                                    <div class="slicer-section">
+                                        <h6 class="slicer-section-title">Parameters</h6>
                                     @if (SelectedDevice.Parameters.Count == 0)
                                     {
                                         <p class="text-muted">No additional parameters have been defined for this device.</p>
@@ -140,6 +161,7 @@
                                             </table>
                                         </div>
                                     }
+                                </div>
                                 </div>
                             }
                         </div>

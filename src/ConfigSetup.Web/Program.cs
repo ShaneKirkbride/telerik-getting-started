@@ -22,6 +22,7 @@ builder.Services.AddSingleton(ConfigurationSchemaProvider.CreateSchemaSet());
 builder.Services.AddSingleton<IXmlConfigurationParser, XmlConfigurationParser>();
 builder.Services.AddSingleton<IScpiCommandGenerator, ScpiCommandGenerator>();
 builder.Services.AddSingleton<ConfigurationExportService>();
+builder.Services.AddSingleton<ISourceUploadService, SimulatedSourceUploadService>();
 builder.Services.AddHostedService<BrowserLaunchHostedService>();
 
 var app = builder.Build();

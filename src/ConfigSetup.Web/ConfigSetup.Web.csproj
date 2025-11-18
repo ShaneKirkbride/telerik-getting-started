@@ -6,6 +6,7 @@
     <Version>1.0.0</Version>
     <AssemblyName>ConfigSetup.Web-v$(Version)</AssemblyName>
     <IncludeAllContentForSelfExtract Condition="'$(PublishSingleFile)' == 'true'">true</IncludeAllContentForSelfExtract>
+    <ApplicationIcon Condition="Exists('ConfigSetup.ico')">ConfigSetup.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,6 +17,10 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting.Systemd" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup Condition="Exists('ConfigSetup.ico')">
+    <Content Include="ConfigSetup.ico" />
   </ItemGroup>
 
 </Project>

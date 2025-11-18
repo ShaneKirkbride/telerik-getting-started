@@ -51,11 +51,16 @@ public sealed partial class Home
     [Inject]
     private ConfigurationExportService ExportService { get; set; } = default!;
 
+    [Inject]
+    private ISourceUploadService SourceUploadService { get; set; } = default!;
+
     private string? XmlContent { get; set; }
 
     private bool IsProcessing { get; set; }
 
     private bool IsExporting { get; set; }
+
+    private bool IsUploading { get; set; }
 
     private string? ErrorMessage { get; set; }
 
@@ -204,6 +209,22 @@ public sealed partial class Home
     {
         ResetSelectedDevice();
         CloseMenus();
+    }
+
+    private Task UploadSelectedSourceAsync()
+    {
+        if (SelectedDevice is null)
+        {
+            ShowError("Select a source before uploading its settings.");
+            return Task.CompletedTask;
+        }
+
+        return UploadSourcesAsync(new[] { SelectedDevice });
+    }
+
+    private Task UploadAllSourcesAsync()
+    {
+        return UploadSourcesAsync(DeviceEditors);
     }
 
     private void LoadSample()
@@ -421,6 +442,58 @@ public sealed partial class Home
     {
         var content = string.IsNullOrWhiteSpace(value) ? defaultValue : value.Trim();
         return string.IsNullOrWhiteSpace(content) ? null : content;
+    }
+
+    private async Task UploadSourcesAsync(IEnumerable<DeviceEditorViewModel> devices)
+    {
+        ArgumentNullException.ThrowIfNull(devices);
+
+        var deviceList = devices.Where(static editor => editor is not null).ToList();
+        if (deviceList.Count == 0)
+        {
+            ShowError("No sources are available to upload.");
+            return;
+        }
+
+        try
+        {
+            IsUploading = true;
+            ClearAlerts();
+
+            var requests = deviceList
+                .Select(BuildUploadRequest)
+                .ToArray();
+
+            var result = await SourceUploadService.UploadAsync(requests);
+            ShowSuccess($"Uploaded {result.UploadedSources} source(s) in {result.Duration.TotalMilliseconds:F0} ms. {result.TotalParameters} parameter value(s) applied.");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to upload source settings.");
+            ShowError("An error occurred while uploading the source settings.");
+        }
+        finally
+        {
+            IsUploading = false;
+        }
+    }
+
+    private static SourceUploadRequest BuildUploadRequest(DeviceEditorViewModel editor)
+    {
+        ArgumentNullException.ThrowIfNull(editor);
+
+        return new SourceUploadRequest
+        {
+            Name = editor.Name,
+            Source = CurrentOrDefault(editor.Source, editor.DefaultSource),
+            Frequency = CurrentOrDefault(editor.Frequency, editor.DefaultFrequency),
+            Power = CurrentOrDefault(editor.Power, editor.DefaultPower),
+            Mode = CurrentOrDefault(editor.Mode, editor.DefaultMode),
+            Parameters = editor.Parameters
+                .Where(parameter => !string.IsNullOrWhiteSpace(parameter.ValueOrDefault))
+                .Select(parameter => new SourceUploadParameter(parameter.Name, parameter.ValueOrDefault))
+                .ToList()
+        };
     }
 
     private void ClearAlerts()
