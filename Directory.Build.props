@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <TargetFrameworks>net8.0</TargetFrameworks>
+    <TargetFrameworks>net9.0</TargetFrameworks>
     <TargetFrameworks Condition="'$(NETCoreSdkVersion)' != '' and $([MSBuild]::VersionGreaterThanOrEquals($([System.String]::Copy('$(NETCoreSdkVersion)').Split('-')[0]), '9.0.100'))">net8.0;net9.0</TargetFrameworks>
   </PropertyGroup>
 </Project>
