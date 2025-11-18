@@ -25,6 +25,23 @@ dotnet build ConfigSetup.sln
 dotnet run --project src/ConfigSetup.Web/ConfigSetup.Web.csproj
 ```
 
+## Packaging a versioned Windows executable
+
+1. Update the `<Version>` property inside `src/ConfigSetup.Web/ConfigSetup.Web.csproj` to the number you want baked into the desktop binary title. The project is configured to emit an assembly named `ConfigSetup.Web-v<Version>`, so publishing automatically yields an `.exe` such as `ConfigSetup.Web-v1.0.0.exe`.
+2. Publish the Blazor Server host as a single-file, self-contained executable for your chosen runtime identifier (replace `win-x64` if necessary):
+
+   ```bash
+   dotnet publish src/ConfigSetup.Web/ConfigSetup.Web.csproj \
+     -c Release \
+     -r win-x64 \
+     --self-contained true \
+     /p:PublishSingleFile=true \
+     /p:IncludeNativeLibrariesForSelfExtract=true \
+     /p:PublishTrimmed=false
+   ```
+
+3. Copy the generated file from `src/ConfigSetup.Web/bin/Release/net8.0/win-x64/publish/` to your desktop and launch it directly.
+
 ## Testing
 
 ```bash
