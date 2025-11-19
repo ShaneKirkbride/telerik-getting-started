@@ -136,6 +136,21 @@
     overflow-y: auto;
 }
 
+.instrument-connection {
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.75rem;
+    padding: 1rem;
+    background-color: var(--bs-body-bg);
+}
+
+.instrument-summary code {
+    font-size: 0.85em;
+}
+
+.custom-command-input {
+    font-family: var(--bs-font-monospace);
+}
+
 @media (max-width: 576px) {
     .slicer-sidebar-item {
         grid-template-columns: 1fr;

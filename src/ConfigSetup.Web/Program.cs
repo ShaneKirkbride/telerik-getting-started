@@ -1,4 +1,6 @@
 using ConfigSetup.Application.Configuration;
+using ConfigSetup.Application.Instrumentation;
+using ConfigSetup.Application.OpenTap;
 using ConfigSetup.Application.Scpi;
 using ConfigSetup.Domain.Schemas;
 using ConfigSetup.Web.Components;
@@ -23,7 +25,12 @@ builder.Services.AddSingleton<IXmlConfigurationParser, XmlConfigurationParser>()
 builder.Services.AddSingleton<IScpiCommandGenerator, ScpiCommandGenerator>();
 builder.Services.AddSingleton<ConfigurationExportService>();
 builder.Services.AddSingleton<ISourceUploadService, SimulatedSourceUploadService>();
+builder.Services.AddSingleton<IInstrumentSessionFactory, KeysightInstrumentSessionFactory>();
+builder.Services.AddSingleton<IInstrumentCommandExecutor, InstrumentCommandExecutor>();
+builder.Services.AddSingleton<IOpenTapSequenceParser, OpenTapSequenceParser>();
+builder.Services.AddSingleton<IOpenTapSequenceExecutor, OpenTapSequenceExecutor>();
 builder.Services.AddHostedService<BrowserLaunchHostedService>();
+builder.Services.Configure<InstrumentOptions>(builder.Configuration.GetSection(InstrumentOptions.SectionName));
 
 var app = builder.Build();
 
