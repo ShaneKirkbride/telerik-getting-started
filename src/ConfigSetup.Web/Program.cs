@@ -10,6 +10,8 @@ using ConfigSetup.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.WebHost.UseStaticWebAssets();
+
 var serviceHostOptions = builder.Configuration
     .GetSection(ServiceHostOptions.SectionName)
     .Get<ServiceHostOptions>() ?? new ServiceHostOptions();
