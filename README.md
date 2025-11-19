@@ -16,13 +16,12 @@ ConfigSetup.sln
 
 ## Prerequisites
 
-* .NET SDK 8.0.416 (matching `global.json`)
+* .NET SDK 8.0.415 (matching `global.json`)
 
-If the required SDK is not available on your workstation or CI image, you can install it locally with the official helper script:
+If the required SDK is not available on your workstation or CI image, you can install it locally with the helper script in this repository:
 
 ```bash
-curl -L https://dot.net/v1/dotnet-install.sh -o dotnet-install.sh
-bash dotnet-install.sh --version 8.0.416
+./scripts/install-dotnet-sdk.sh
 export PATH="$HOME/.dotnet:$PATH"
 ```
 
