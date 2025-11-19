@@ -107,6 +107,10 @@ public sealed partial class Home
 
     private string GenerateButtonLabel => IsProcessing ? "Processing..." : "Generate commands";
 
+    private string? SchemaSummaryDeviceName => SelectedDevice?.Name ?? DeviceEditors.FirstOrDefault()?.Name;
+
+    private string SchemaSummaryXml => BuildSchemaSummaryXml();
+
     private ScpiWorkspaceState ScpiWorkspace { get; } = new();
 
     private EditorWorkspaceState EditorWorkspace { get; } = new();
@@ -330,6 +334,18 @@ public sealed partial class Home
             new XDeclaration("1.0", "utf-8", "yes"),
             new XElement("Configuration", DeviceEditors.Select(editor => editor.ToXElement())));
 
+        return document.ToString();
+    }
+
+    private string BuildSchemaSummaryXml()
+    {
+        var device = SelectedDevice ?? DeviceEditors.FirstOrDefault();
+        if (device is null)
+        {
+            return "<Configuration>\n  <!-- No devices defined yet -->\n</Configuration>";
+        }
+
+        var document = new XDocument(new XElement("Configuration", device.ToXElement()));
         return document.ToString();
     }
 
