@@ -39,6 +39,8 @@ public sealed class ExportDeviceRequest
 
     public string? Mode { get; init; }
 
+    public ExportConnectionRequest? Connection { get; init; }
+
     public IList<ExportParameterRequest> Parameters { get; init; } = new List<ExportParameterRequest>();
 
     public void EnsureIsValid()
@@ -51,6 +53,33 @@ public sealed class ExportDeviceRequest
         foreach (var parameter in Parameters)
         {
             parameter.EnsureIsValid();
+        }
+
+        Connection?.EnsureIsValid();
+    }
+}
+
+/// <summary>
+/// Transport type for describing per-device instrument connectivity.
+/// </summary>
+public sealed class ExportConnectionRequest
+{
+    public string? Protocol { get; init; }
+
+    public string? Address { get; init; }
+
+    public string? Port { get; init; }
+
+    public void EnsureIsValid()
+    {
+        if (string.IsNullOrWhiteSpace(Address) && string.IsNullOrWhiteSpace(Protocol) && string.IsNullOrWhiteSpace(Port))
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(Address))
+        {
+            throw new InvalidOperationException("When a connection is provided, an address is required.");
         }
     }
 }

@@ -29,6 +29,7 @@ public static class DeviceEditorTemplateCatalog
             defaultFrequency: "1.200GHz",
             defaultPower: "-10dBm",
             defaultMode: "FDM",
+            connection: new InstrumentConnectionEditorViewModel("HiSLIP", "192.168.0.20", "4880"),
             parameters: new[]
             {
                 new ParameterEditorViewModel("WAVE:TYPE", "SINE"),
@@ -45,6 +46,7 @@ public static class DeviceEditorTemplateCatalog
             defaultFrequency: "500MHz",
             defaultPower: "-30dBm",
             defaultMode: "NOISE",
+            connection: new InstrumentConnectionEditorViewModel("HiSLIP", "192.168.0.30", "4881"),
             parameters: new[]
             {
                 new ParameterEditorViewModel("NOISE:BAND", "20MHz"),
@@ -60,6 +62,7 @@ public static class DeviceEditorTemplateCatalog
             defaultFrequency: "2.400GHz",
             defaultPower: "0dBm",
             defaultMode: "IQ",
+            connection: new InstrumentConnectionEditorViewModel("HiSLIP", "192.168.0.40", "4880"),
             parameters: new[]
             {
                 new ParameterEditorViewModel("ARB:FILE", "LTE-REF"),
@@ -75,6 +78,7 @@ public static class DeviceEditorTemplateCatalog
             defaultFrequency: "1GHz",
             defaultPower: "-3dBm",
             defaultMode: "CW",
+            connection: new InstrumentConnectionEditorViewModel("TCPIP-SOCKET", "192.168.0.50", "5025"),
             parameters: new[]
             {
                 new ParameterEditorViewModel("OUTP:STAT", "ON")

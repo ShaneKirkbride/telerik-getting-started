@@ -100,6 +100,14 @@ public sealed class XmlConfigurationParser : IXmlConfigurationParser
                 (string?)x.Attribute("value") ?? throw new InvalidOperationException("Parameter elements must define a value.")))
             .ToList();
 
-        return new DeviceConfiguration(name, source, frequency, power, mode, parameters);
+        var connectionElement = deviceElement.Element("Connection");
+        var connection = connectionElement is null
+            ? null
+            : new InstrumentConnection(
+                (string?)connectionElement.Attribute("protocol"),
+                (string?)connectionElement.Element("Address"),
+                (string?)connectionElement.Element("Port"));
+
+        return new DeviceConfiguration(name, source, frequency, power, mode, parameters, connection);
     }
 }

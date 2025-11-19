@@ -137,11 +137,11 @@
                                 </div>
                             }
                             else
-                            {
-                                <div class="source-detail-panel">
-                                    <div class="source-detail-header">
-                                        <div>
-                                            <div class="source-detail-title">@activeDevice.Name</div>
+                                    {
+                                        <div class="source-detail-panel">
+                                            <div class="source-detail-header">
+                                                <div>
+                                                    <div class="source-detail-title">@activeDevice.Name</div>
                                             <div class="source-card-meta">
                                                 <span>Source <strong>@FormatDefault(CurrentOrDefault(activeDevice.Source, activeDevice.DefaultSource) ?? string.Empty)</strong></span>
                                                 <span>Mode <strong>@FormatDefault(CurrentOrDefault(activeDevice.Mode, activeDevice.DefaultMode) ?? string.Empty)</strong></span>
@@ -179,6 +179,31 @@
                                                 <div class="form-text">Default: <code>@FormatDefault(activeDevice.DefaultPower)</code></div>
                                             </div>
                                         </div>
+                                    </div>
+
+                                    <div class="slicer-section mb-4">
+                                        <h6 class="slicer-section-title">Instrument connection</h6>
+                                        <div class="row g-3">
+                                            <div class="col-md-4">
+                                                <label class="form-label">Protocol</label>
+                                                <InputSelect class="form-select form-select-sm" @bind-Value="activeDevice.Connection.Protocol" @onchange="_ => OnConnectionChanged(activeDevice)">
+                                                    <option value="HiSLIP">HiSLIP</option>
+                                                    <option value="TCPIP-SOCKET">TCPIP-SOCKET</option>
+                                                </InputSelect>
+                                                <div class="form-text">HiSLIP over TCP/IP or raw socket control.</div>
+                                            </div>
+                                            <div class="col-md-5">
+                                                <label class="form-label">TCP/IP Address</label>
+                                                <InputText class="form-control form-control-sm" @bind-Value="activeDevice.Connection.Host" @bind-Value:event="oninput" @onchange="_ => OnConnectionChanged(activeDevice)" placeholder="192.168.0.20" />
+                                                <div class="form-text">Aligns with the instrument's LAN address.</div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">Port</label>
+                                                <InputText class="form-control form-control-sm" @bind-Value="activeDevice.Connection.Port" @bind-Value:event="oninput" @onchange="_ => OnConnectionChanged(activeDevice)" placeholder="4880" />
+                                                <div class="form-text">HiSLIP defaults to 4880/4881; sockets vary by instrument.</div>
+                                            </div>
+                                        </div>
+                                        <p class="small text-muted mb-0 mt-2">VISA resource preview: <code>@activeDevice.Connection.BuildVisaResourceAddress()</code></p>
                                     </div>
 
                                     <div class="slicer-section flex-grow-1 d-flex flex-column">
@@ -352,6 +377,10 @@
     &lt;Frequency&gt;1.2GHz&lt;/Frequency&gt;
     &lt;Power&gt;-10dBm&lt;/Power&gt;
     &lt;Mode&gt;FDM&lt;/Mode&gt;
+    &lt;Connection protocol="HiSLIP"&gt;
+      &lt;Address&gt;192.168.0.20&lt;/Address&gt;
+      &lt;Port&gt;4880&lt;/Port&gt;
+    &lt;/Connection&gt;
     &lt;Parameter name="WAVE:TYPE" value="SINE" /&gt;
   &lt;/Device&gt;
 &lt;/Configuration&gt;</pre>
