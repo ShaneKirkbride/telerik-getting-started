@@ -103,6 +103,10 @@ public sealed partial class Home
 
     private string GenerateButtonLabel => IsProcessing ? "Processing..." : "Generate commands";
 
+    private ScpiWorkspaceState ScpiWorkspace { get; } = new();
+
+    private EditorWorkspaceState EditorWorkspace { get; } = new();
+
     protected override void OnInitialized()
     {
         InitializeDefaultEditors();
@@ -235,20 +239,15 @@ public sealed partial class Home
         CloseMenus();
     }
 
-    private Task UploadSelectedSourceAsync()
-    {
-        if (SelectedDevice is null)
-        {
-            ShowError("Select a source before uploading its settings.");
-            return Task.CompletedTask;
-        }
-
-        return UploadSourcesAsync(new[] { SelectedDevice });
-    }
-
     private Task UploadAllSourcesAsync()
     {
         return UploadSourcesAsync(DeviceEditors);
+    }
+
+    private Task UploadSourceAsync(DeviceEditorViewModel device)
+    {
+        ArgumentNullException.ThrowIfNull(device);
+        return UploadSourcesAsync(new[] { device });
     }
 
     private Task ExecuteGeneratedCommandsOnInstrumentAsync()
@@ -407,9 +406,15 @@ public sealed partial class Home
             return;
         }
 
-        SelectedDevice.ResetToDefaults();
+        ResetDevice(SelectedDevice);
+    }
+
+    private void ResetDevice(DeviceEditorViewModel device)
+    {
+        ArgumentNullException.ThrowIfNull(device);
+        device.ResetToDefaults();
         GeneratedCommands.Clear();
-        ShowSuccess($"Reset '{SelectedDevice.Name}' to default values.");
+        ShowSuccess($"Reset '{device.Name}' to default values.");
     }
 
     private void ResetParameter(ParameterEditorViewModel parameter)
@@ -422,6 +427,19 @@ public sealed partial class Home
     {
         ArgumentNullException.ThrowIfNull(device);
         SelectedDevice = device;
+        EditorWorkspace.SetActiveTab(EditorWorkspaceTab.SourceEditor);
+    }
+
+    private bool IsDeviceSelected(DeviceEditorViewModel device)
+    {
+        ArgumentNullException.ThrowIfNull(device);
+        return ReferenceEquals(device, SelectedDevice);
+    }
+
+    private string GetSourceListItemClass(DeviceEditorViewModel device)
+    {
+        ArgumentNullException.ThrowIfNull(device);
+        return IsDeviceSelected(device) ? "source-list-item active" : "source-list-item";
     }
 
     private bool TryParseConfiguration(string? xmlContent, [NotNullWhen(true)] out HardwareConfiguration? configuration, bool reportIssues = true)
@@ -482,32 +500,44 @@ public sealed partial class Home
     private void InitializeDefaultEditors()
     {
         DeviceEditors.Clear();
-        DeviceEditors.Add(new DeviceEditorViewModel(
-            "Arb",
-            defaultSource: "Arb",
-            defaultFrequency: "1.2GHz",
-            defaultPower: "-10dBm",
-            defaultMode: "FDM",
-            parameters: new[]
-            {
-                new ParameterEditorViewModel("WAVE:TYPE", "SINE"),
-                new ParameterEditorViewModel("WAVE:FREQ", "1kHz"),
-                new ParameterEditorViewModel("WAVE:AMPL", "1.0")
-            }));
+        DeviceEditors.AddRange(DeviceEditorTemplateCatalog.CreateDefaultEditors());
 
         SelectedDevice = DeviceEditors.FirstOrDefault();
-    }
-
-    private string GetDeviceButtonClass(DeviceEditorViewModel device)
-    {
-        ArgumentNullException.ThrowIfNull(device);
-        var baseClass = "list-group-item list-group-item-action d-flex justify-content-between align-items-center slicer-sidebar-item";
-        return ReferenceEquals(device, SelectedDevice) ? $"{baseClass} active" : baseClass;
     }
 
     private string GetMenuToggleClass(MenuType menu)
     {
         return ActiveMenu == menu ? "active" : string.Empty;
+    }
+
+    private void SetScpiTab(ScpiWorkspaceTab tab)
+    {
+        ScpiWorkspace.SetActiveTab(tab);
+    }
+
+    private string GetScpiTabClass(ScpiWorkspaceTab tab)
+    {
+        return ScpiWorkspace.GetTabCss(tab);
+    }
+
+    private string GetScpiPaneClass(ScpiWorkspaceTab tab)
+    {
+        return ScpiWorkspace.GetPaneCss(tab);
+    }
+
+    private void SetEditorWorkspaceTab(EditorWorkspaceTab tab)
+    {
+        EditorWorkspace.SetActiveTab(tab);
+    }
+
+    private string GetEditorWorkspaceTabClass(EditorWorkspaceTab tab)
+    {
+        return EditorWorkspace.GetTabCss(tab);
+    }
+
+    private string GetEditorWorkspacePaneClass(EditorWorkspaceTab tab)
+    {
+        return EditorWorkspace.GetPaneCss(tab);
     }
 
     private static string FormatDefault(string value)
@@ -675,4 +705,5 @@ public sealed partial class Home
         Edit,
         View
     }
+
 }

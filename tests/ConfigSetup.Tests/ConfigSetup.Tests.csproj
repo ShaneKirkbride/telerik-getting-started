@@ -20,6 +20,7 @@
   <ItemGroup>
     <ProjectReference Include="../../src/ConfigSetup.Application/ConfigSetup.Application.csproj" />
     <ProjectReference Include="../../src/ConfigSetup.Domain/ConfigSetup.Domain.csproj" />
+    <ProjectReference Include="../../src/ConfigSetup.Web/ConfigSetup.Web.csproj" />
   </ItemGroup>
 
   <ItemGroup>
