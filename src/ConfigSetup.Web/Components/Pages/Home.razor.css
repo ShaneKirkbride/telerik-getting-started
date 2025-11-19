@@ -63,40 +63,61 @@
     font-family: var(--bs-font-monospace);
 }
 
-.slicer-sidebar-list {
+
+
+.source-stack-card .card-body {
     display: flex;
     flex-direction: column;
+    gap: 1rem;
 }
 
-.slicer-sidebar-item {
+.source-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.source-list-item {
+    width: 100%;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.75rem;
+    background-color: var(--bs-body-bg);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
     text-align: left;
-    padding: 0.75rem 1rem;
-    border: none;
-    border-bottom: 1px solid var(--bs-border-color);
-    background-color: transparent;
-    transition: background-color 0.2s ease;
-    display: grid;
-    grid-template-columns: 1fr auto;
-    grid-auto-rows: auto;
-    gap: 0.2rem 0.5rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 
-.slicer-sidebar-item:last-child {
-    border-bottom: none;
+.source-list-item:hover {
+    border-color: var(--bs-primary-border-subtle);
+    box-shadow: var(--bs-box-shadow-sm);
 }
 
-.slicer-sidebar-item.active,
-.slicer-sidebar-item:hover {
-    background-color: var(--bs-secondary-bg);
+.source-list-item.active {
+    border-color: var(--bs-primary-border-subtle);
+    background-color: var(--bs-primary-bg-subtle);
+    box-shadow: var(--bs-box-shadow-sm);
 }
 
-.slicer-sidebar-item-title {
+.source-list-index {
     font-weight: 600;
-    grid-column: 1 / 2;
+    font-size: 1.25rem;
+    color: var(--bs-primary);
+    min-width: 3rem;
 }
 
-.slicer-sidebar-item-meta {
-    grid-column: 1 / 2;
+.source-list-summary {
+    flex: 1;
+}
+
+.source-list-title {
+    font-weight: 600;
+}
+
+.source-list-meta,
+.source-card-meta {
     font-size: 0.8rem;
     color: var(--bs-secondary-color);
     display: flex;
@@ -104,37 +125,78 @@
     flex-wrap: wrap;
 }
 
-.slicer-sidebar-item .badge {
-    grid-row: 1 / span 2;
-    align-self: center;
-}
-
-.device-editor-panel {
+.source-detail-panel {
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+    background-color: var(--bs-body-bg);
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 1rem;
 }
 
-.device-editor-toolbar {
+.source-detail-header {
     display: flex;
     justify-content: space-between;
-    gap: 1rem;
     align-items: flex-start;
+    gap: 1rem;
     flex-wrap: wrap;
 }
 
-.device-editor-label {
-    font-size: 0.8rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--bs-secondary-color);
-    margin-bottom: 0.25rem;
+.source-detail-title {
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.source-detail-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.source-detail-empty {
+    border: 1px dashed var(--bs-border-color);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    text-align: center;
 }
 
 .slicer-parameter-table {
-    max-height: 18rem;
+    max-height: 20rem;
     overflow-y: auto;
 }
+
+.editor-tabs,
+.scpi-tabs {
+    gap: 0.5rem;
+}
+
+.editor-tabs .nav-link,
+.scpi-tabs .nav-link {
+    border-radius: 999px;
+    border: 1px solid transparent;
+    color: var(--bs-secondary-color);
+    padding: 0.35rem 0.9rem;
+}
+
+.editor-tabs .nav-link.active,
+.scpi-tabs .nav-link.active {
+    background-color: var(--bs-primary-bg-subtle);
+    color: var(--bs-primary-text);
+    border-color: var(--bs-primary-border-subtle);
+}
+
+.editor-tab-content,
+.scpi-tab-content {
+    flex-grow: 1;
+}
+
+.editor-tab-content .tab-pane,
+.scpi-tab-content .tab-pane {
+    padding-top: 0.5rem;
+}
+
 
 .instrument-connection {
     border: 1px solid var(--bs-border-color);
@@ -152,16 +214,8 @@
 }
 
 @media (max-width: 576px) {
-    .slicer-sidebar-item {
-        grid-template-columns: 1fr;
-    }
-
-    .slicer-sidebar-item .badge {
-        justify-self: flex-start;
-    }
-
-    .device-editor-toolbar {
+    .source-list-item {
         flex-direction: column;
-        align-items: stretch;
+        align-items: flex-start;
     }
 }

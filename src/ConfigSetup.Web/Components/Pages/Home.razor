@@ -52,51 +52,106 @@
         <div class="alert alert-success" role="alert">@SuccessMessage</div>
     }
 
-    <div class="row g-4 align-items-stretch">
-        <div class="col-12 col-xl-7">
-            <div class="card shadow-sm h-100 slicer-card">
-                <div class="card-header fw-semibold">Device editor</div>
-                <div class="card-body d-flex flex-column">
-                    <p class="card-text">Choose a device and adjust its settings. Defaults are preserved even when XML omits values.</p>
-                    <div class="row g-3 slicer-layout flex-grow-1">
-                        <div class="col-12 col-lg-5 col-xxl-4">
-                            <div class="slicer-sidebar h-100 border rounded-3">
-                                <div class="list-group list-group-flush slicer-sidebar-list">
-                                    @foreach (var device in DeviceEditors)
-                                    {
-                                        <button type="button" class="@GetDeviceButtonClass(device)" @onclick="() => SelectDevice(device)">
-                                            <div class="slicer-sidebar-item-title">@device.Name</div>
-                                            <div class="slicer-sidebar-item-meta">
-                                                <span>Source: <strong>@FormatDefault(CurrentOrDefault(device.Source, device.DefaultSource) ?? string.Empty)</strong></span>
-                                                <span>Mode: <strong>@FormatDefault(CurrentOrDefault(device.Mode, device.DefaultMode) ?? string.Empty)</strong></span>
-                                            </div>
-                                            <span class="badge text-bg-light" aria-label="Parameter count">@device.Parameters.Count</span>
-                                        </button>
-                                    }
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-12 col-lg-7 col-xxl-8">
-                            @if (SelectedDevice is null)
+    <div class="row g-4 align-items-stretch source-workspace-row">
+        <div class="col-12 col-lg-4 col-xxl-3">
+            <div class="card shadow-sm h-100 source-stack-card">
+                <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <div class="fw-semibold">Sources</div>
+                        <p class="text-muted small mb-0">Stacked view keeps every source one click away.</p>
+                    </div>
+                    <button class="btn btn-primary btn-sm" type="button" disabled="@(IsUploading || DeviceEditors.Count == 0)" @onclick="UploadAllSourcesAsync">
+                        @(IsUploading ? "Updating..." : "Update all sources")
+                    </button>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Select any source on the left to load its parameters in the editor tab.</p>
+                    @if (DeviceEditors.Count == 0)
+                    {
+                        <p class="text-muted mb-0">No sources are available. Import XML to start editing.</p>
+                    }
+                    else
+                    {
+                        <div class="source-stack" role="listbox" aria-label="Configured sources">
+                            @foreach (var entry in DeviceEditors.Select((device, index) => new { device, index }))
                             {
-                                <p class="text-muted">No device selected yet. Select a device from the list to begin editing.</p>
+                                <button
+                                    type="button"
+                                    class="@GetSourceListItemClass(entry.device)"
+                                    aria-pressed="@IsDeviceSelected(entry.device)"
+                                    @onclick="() => SelectDevice(entry.device)">
+                                    <span class="source-list-index">@($"{entry.index + 1:00}")</span>
+                                    <div class="source-list-summary">
+                                        <div class="source-list-title">@entry.device.Name</div>
+                                        <div class="source-list-meta">
+                                            <span>Source <strong>@FormatDefault(CurrentOrDefault(entry.device.Source, entry.device.DefaultSource) ?? string.Empty)</strong></span>
+                                            <span>Mode <strong>@FormatDefault(CurrentOrDefault(entry.device.Mode, entry.device.DefaultMode) ?? string.Empty)</strong></span>
+                                        </div>
+                                    </div>
+                                    <span class="badge text-bg-light" aria-label="Parameter count">@entry.device.Parameters.Count</span>
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-8 col-xxl-9">
+            <div class="card shadow-sm h-100 workspace-card">
+                <div class="card-header">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                        <div>
+                            <div class="fw-semibold">Workspace</div>
+                            <p class="text-muted small mb-0">Use the tabs to switch between source editing and SCPI tooling.</p>
+                        </div>
+                        <div class="nav nav-pills editor-tabs" role="tablist">
+                            <button
+                                id="workspaceSourceTab"
+                                type="button"
+                                class="@GetEditorWorkspaceTabClass(EditorWorkspaceTab.SourceEditor)"
+                                role="tab"
+                                aria-controls="sourceEditorPane"
+                                aria-selected="@EditorWorkspace.IsActive(EditorWorkspaceTab.SourceEditor)"
+                                @onclick="() => SetEditorWorkspaceTab(EditorWorkspaceTab.SourceEditor)">Source editor</button>
+                            <button
+                                id="workspaceScpiTab"
+                                type="button"
+                                class="@GetEditorWorkspaceTabClass(EditorWorkspaceTab.ScpiWorkspace)"
+                                role="tab"
+                                aria-controls="scpiWorkspacePane"
+                                aria-selected="@EditorWorkspace.IsActive(EditorWorkspaceTab.ScpiWorkspace)"
+                                @onclick="() => SetEditorWorkspaceTab(EditorWorkspaceTab.ScpiWorkspace)">SCPI workspace</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body d-flex flex-column gap-4">
+                    <div class="tab-content editor-tab-content flex-grow-1" id="editorWorkspaceContent">
+                        <div class="@GetEditorWorkspacePaneClass(EditorWorkspaceTab.SourceEditor)" role="tabpanel" id="sourceEditorPane" aria-labelledby="workspaceSourceTab">
+                            @{
+                                var activeDevice = SelectedDevice;
+                            }
+                            @if (activeDevice is null)
+                            {
+                                <div class="source-detail-empty text-muted">
+                                    Select a source on the left to edit its configuration.
+                                </div>
                             }
                             else
                             {
-                                <div class="device-editor-panel">
-                                    <div class="device-editor-toolbar">
+                                <div class="source-detail-panel">
+                                    <div class="source-detail-header">
                                         <div>
-                                            <p class="device-editor-label">Selected source</p>
-                                            <h5 class="mb-1">@SelectedDevice.Name</h5>
-                                            <p class="text-muted small mb-0">Customize parameters for <strong>@FormatDefault(CurrentOrDefault(SelectedDevice.Source, SelectedDevice.DefaultSource) ?? string.Empty)</strong>.</p>
+                                            <div class="source-detail-title">@activeDevice.Name</div>
+                                            <div class="source-card-meta">
+                                                <span>Source <strong>@FormatDefault(CurrentOrDefault(activeDevice.Source, activeDevice.DefaultSource) ?? string.Empty)</strong></span>
+                                                <span>Mode <strong>@FormatDefault(CurrentOrDefault(activeDevice.Mode, activeDevice.DefaultMode) ?? string.Empty)</strong></span>
+                                            </div>
                                         </div>
-                                        <div class="btn-toolbar gap-2 flex-wrap" role="group" aria-label="Upload actions">
-                                            <button class="btn btn-outline-primary btn-sm" type="button" disabled="@IsUploading" @onclick="UploadSelectedSourceAsync">
-                                                @(IsUploading ? "Uploading..." : "Upload source")
+                                        <div class="source-detail-actions">
+                                            <button class="btn btn-outline-primary btn-sm" type="button" disabled="@IsUploading" @onclick="() => UploadSourceAsync(activeDevice)">
+                                                @(IsUploading ? "Updating..." : "Update this source")
                                             </button>
-                                            <button class="btn btn-primary btn-sm" type="button" disabled="@(IsUploading || DeviceEditors.Count == 0)" @onclick="UploadAllSourcesAsync">
-                                                @(IsUploading ? "Uploading..." : "Upload all sources")
-                                            </button>
+                                            <button class="btn btn-link btn-sm text-danger" type="button" @onclick="() => ResetDevice(activeDevice)">Reset to defaults</button>
                                         </div>
                                     </div>
 
@@ -105,141 +160,166 @@
                                         <div class="row g-3">
                                             <div class="col-sm-6">
                                                 <label class="form-label">Arb</label>
-                                            <InputText class="form-control form-control-sm" @bind-Value="SelectedDevice.Source" @bind-Value:event="oninput" />
-                                            <div class="form-text">Default: <code>@FormatDefault(SelectedDevice.DefaultSource)</code></div>
-                                        </div>
-                                        <div class="col-sm-6">
-                                            <label class="form-label">Mode</label>
-                                            <InputText class="form-control form-control-sm" @bind-Value="SelectedDevice.Mode" @bind-Value:event="oninput" />
-                                            <div class="form-text">Default: <code>@FormatDefault(SelectedDevice.DefaultMode)</code></div>
-                                        </div>
-                                        <div class="col-sm-6">
-                                            <label class="form-label">Frequency</label>
-                                            <InputText class="form-control form-control-sm" @bind-Value="SelectedDevice.Frequency" @bind-Value:event="oninput" />
-                                            <div class="form-text">Default: <code>@FormatDefault(SelectedDevice.DefaultFrequency)</code></div>
-                                        </div>
-                                        <div class="col-sm-6">
-                                            <label class="form-label">Power</label>
-                                            <InputText class="form-control form-control-sm" @bind-Value="SelectedDevice.Power" @bind-Value:event="oninput" />
-                                            <div class="form-text">Default: <code>@FormatDefault(SelectedDevice.DefaultPower)</code></div>
-                                        </div>
+                                                <InputText class="form-control form-control-sm" @bind-Value="activeDevice.Source" @bind-Value:event="oninput" />
+                                                <div class="form-text">Default: <code>@FormatDefault(activeDevice.DefaultSource)</code></div>
+                                            </div>
+                                            <div class="col-sm-6">
+                                                <label class="form-label">Mode</label>
+                                                <InputText class="form-control form-control-sm" @bind-Value="activeDevice.Mode" @bind-Value:event="oninput" />
+                                                <div class="form-text">Default: <code>@FormatDefault(activeDevice.DefaultMode)</code></div>
+                                            </div>
+                                            <div class="col-sm-6">
+                                                <label class="form-label">Frequency</label>
+                                                <InputText class="form-control form-control-sm" @bind-Value="activeDevice.Frequency" @bind-Value:event="oninput" />
+                                                <div class="form-text">Default: <code>@FormatDefault(activeDevice.DefaultFrequency)</code></div>
+                                            </div>
+                                            <div class="col-sm-6">
+                                                <label class="form-label">Power</label>
+                                                <InputText class="form-control form-control-sm" @bind-Value="activeDevice.Power" @bind-Value:event="oninput" />
+                                                <div class="form-text">Default: <code>@FormatDefault(activeDevice.DefaultPower)</code></div>
+                                            </div>
                                         </div>
                                     </div>
 
-                                    <div class="slicer-section">
+                                    <div class="slicer-section flex-grow-1 d-flex flex-column">
                                         <h6 class="slicer-section-title">Parameters</h6>
-                                    @if (SelectedDevice.Parameters.Count == 0)
-                                    {
-                                        <p class="text-muted">No additional parameters have been defined for this device.</p>
-                                    }
-                                    else
-                                    {
-                                        <div class="table-responsive slicer-parameter-table">
-                                            <table class="table table-sm align-middle mb-0">
-                                                <thead>
-                                                    <tr>
-                                                        <th scope="col" style="width: 35%">Name</th>
-                                                        <th scope="col" style="width: 35%">Value</th>
-                                                        <th scope="col">Default</th>
-                                                        <th scope="col" class="text-end">Reset</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    @foreach (var parameter in SelectedDevice.Parameters)
-                                                    {
+                                        @if (activeDevice.Parameters.Count == 0)
+                                        {
+                                            <p class="text-muted">No additional parameters have been defined for this device.</p>
+                                        }
+                                        else
+                                        {
+                                            <div class="table-responsive slicer-parameter-table flex-grow-1">
+                                                <table class="table table-sm align-middle mb-0">
+                                                    <thead>
                                                         <tr>
-                                                            <th scope="row">@parameter.Name</th>
-                                                            <td>
-                                                                <InputText class="form-control form-control-sm" @bind-Value="parameter.Value" @bind-Value:event="oninput" />
-                                                            </td>
-                                                            <td class="text-muted small"><code>@FormatDefault(parameter.DefaultValue)</code></td>
-                                                            <td class="text-end">
-                                                                <button type="button" class="btn btn-link btn-sm" @onclick="() => ResetParameter(parameter)">Reset</button>
-                                                            </td>
+                                                            <th scope="col" style="width: 35%">Name</th>
+                                                            <th scope="col" style="width: 35%">Value</th>
+                                                            <th scope="col">Default</th>
+                                                            <th scope="col" class="text-end">Reset</th>
                                                         </tr>
-                                                    }
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    }
-                                </div>
+                                                    </thead>
+                                                    <tbody>
+                                                        @foreach (var parameter in activeDevice.Parameters)
+                                                        {
+                                                            <tr>
+                                                                <th scope="row">@parameter.Name</th>
+                                                                <td>
+                                                                    <InputText class="form-control form-control-sm" @bind-Value="parameter.Value" @bind-Value:event="oninput" />
+                                                                </td>
+                                                                <td class="text-muted small"><code>@FormatDefault(parameter.DefaultValue)</code></td>
+                                                                <td class="text-end">
+                                                                    <button type="button" class="btn btn-link btn-sm" @onclick="() => ResetParameter(parameter)">Reset</button>
+                                                                </td>
+                                                            </tr>
+                                                        }
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        }
+                                    </div>
                                 </div>
                             }
                         </div>
+                        <div class="@GetEditorWorkspacePaneClass(EditorWorkspaceTab.ScpiWorkspace)" role="tabpanel" id="scpiWorkspacePane" aria-labelledby="workspaceScpiTab">
+                            <div class="scpi-pane">
+                                <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+                                    <div>
+                                        <div class="fw-semibold">SCPI workspace</div>
+                                        <p class="text-muted small mb-0">Review generated commands or interact with instruments when needed.</p>
+                                    </div>
+                                    <div class="nav nav-pills scpi-tabs" role="tablist">
+                                        <button
+                                            id="scpiCommandsTab"
+                                            type="button"
+                                            class="@GetScpiTabClass(ScpiWorkspaceTab.Commands)"
+                                            role="tab"
+                                            aria-controls="scpiCommandsPane"
+                                            aria-selected="@ScpiWorkspace.IsActive(ScpiWorkspaceTab.Commands)"
+                                            @onclick="() => SetScpiTab(ScpiWorkspaceTab.Commands)">Generated commands</button>
+                                        <button
+                                            id="scpiInstrumentTab"
+                                            type="button"
+                                            class="@GetScpiTabClass(ScpiWorkspaceTab.Instrument)"
+                                            role="tab"
+                                            aria-controls="scpiInstrumentPane"
+                                            aria-selected="@ScpiWorkspace.IsActive(ScpiWorkspaceTab.Instrument)"
+                                            @onclick="() => SetScpiTab(ScpiWorkspaceTab.Instrument)">Instrument I/O</button>
+                                    </div>
+                                </div>
+
+                                <div class="tab-content scpi-tab-content" id="scpiWorkspaceContent">
+                                    <div class="@GetScpiPaneClass(ScpiWorkspaceTab.Commands)" role="tabpanel" id="scpiCommandsPane" aria-labelledby="scpiCommandsTab">
+                                        @if (GeneratedCommands.Count == 0)
+                                        {
+                                            <p class="text-muted mb-0">Commands will appear here after a successful parse.</p>
+                                        }
+                                        else
+                                        {
+                                            <div class="table-responsive">
+                                                <table class="table table-sm table-striped mb-0">
+                                                    <thead>
+                                                        <tr>
+                                                            <th scope="col" style="width:6rem">#</th>
+                                                            <th scope="col">Command</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @foreach (var entry in GeneratedCommands.Select((command, index) => new { command, index }))
+                                                        {
+                                                            <tr>
+                                                                <th scope="row">@(entry.index + 1)</th>
+                                                                <td><code>@entry.command.Text</code></td>
+                                                            </tr>
+                                                        }
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        }
+                                    </div>
+                                    <div class="@GetScpiPaneClass(ScpiWorkspaceTab.Instrument)" role="tabpanel" id="scpiInstrumentPane" aria-labelledby="scpiInstrumentTab">
+                                        <div class="instrument-connection">
+                                            <div class="row g-3 align-items-end">
+                                                <div class="col-md-8">
+                                                    <label class="form-label">Instrument address</label>
+                                                    <InputText class="form-control form-control-sm" @bind-Value="InstrumentResourceAddress" @bind-Value:event="oninput" placeholder="TCPIP0::127.0.0.1::inst0::INSTR" />
+                                                    <div class="form-text">Commands are sent through Keysight IO Libraries (VISA).</div>
+                                                </div>
+                                                <div class="col-md-4 d-flex flex-column gap-2 text-md-end">
+                                                    <button class="btn btn-outline-primary btn-sm" type="button" @onclick="ExecuteGeneratedCommandsOnInstrumentAsync" disabled="@(IsInstrumentBusy || GeneratedCommands.Count == 0)">
+                                                        @(IsInstrumentBusy ? "Streaming..." : "Run generated commands")
+                                                    </button>
+                                                    <button class="btn btn-outline-secondary btn-sm" type="button" disabled="@IsInstrumentBusy" @onclick="TriggerSequencePickerAsync">Run OpenTAP sequence...</button>
+                                                </div>
+                                            </div>
+                                            @if (LastInstrumentExecution is not null)
+                                            {
+                                                <p class="instrument-summary small text-muted mb-0 mt-2">
+                                                    Last run <strong>@(LastInstrumentExecution.SequenceName ?? "Ad-hoc batch")</strong>
+                                                    sent @LastInstrumentExecution.CommandCount command(s) to
+                                                    <code>@LastInstrumentExecution.ResourceAddress</code>
+                                                    in @LastInstrumentExecution.Duration.TotalMilliseconds.ToString("F0") ms.
+                                                </p>
+                                            }
+                                        </div>
+
+                                        <div class="custom-command-section">
+                                            <h6 class="slicer-section-title">Custom instrument commands</h6>
+                                            <InputTextArea class="form-control form-control-sm custom-command-input" rows="3" @bind-Value="CustomCommandText" @bind-Value:event="oninput" placeholder="*IDN?&#10;SOUR1:FREQ 1GHz" />
+                                            <div class="d-flex justify-content-between align-items-center mt-2 flex-wrap gap-2">
+                                                <span class="form-text">Use this area for instrument-specific overrides or troubleshooting.</span>
+                                                <button class="btn btn-outline-secondary btn-sm" type="button" @onclick="SendCustomCommandsAsync" disabled="@(IsInstrumentBusy || string.IsNullOrWhiteSpace(CustomCommandText))">Send to instrument</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="d-flex justify-content-end gap-2 mt-4">
-                        <button class="btn btn-outline-secondary" type="button" @onclick="ResetSelectedDevice" disabled="@(SelectedDevice is null)">Reset device</button>
+
+                    <div class="d-flex justify-content-end gap-2 flex-wrap">
                         <button class="btn btn-secondary" type="button" @onclick="SyncEditorsToXml" disabled="@(DeviceEditors.Count == 0)">Update XML</button>
                         <button class="btn btn-primary" @onclick="GenerateCommandsAsync" disabled="@IsProcessing">@GenerateButtonLabel</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-12 col-xl-5">
-            <div class="card shadow-sm h-100">
-                <div class="card-header fw-semibold">SCPI Commands</div>
-                <div class="card-body d-flex flex-column gap-4">
-                    <div class="instrument-connection">
-                        <div class="row g-3 align-items-end">
-                            <div class="col-md-8">
-                                <label class="form-label">Instrument address</label>
-                                <InputText class="form-control form-control-sm" @bind-Value="InstrumentResourceAddress" @bind-Value:event="oninput" placeholder="TCPIP0::127.0.0.1::inst0::INSTR" />
-                                <div class="form-text">Commands are sent through Keysight IO Libraries (VISA).</div>
-                            </div>
-                            <div class="col-md-4 d-flex flex-column gap-2 text-md-end">
-                                <button class="btn btn-outline-primary btn-sm" type="button" @onclick="ExecuteGeneratedCommandsOnInstrumentAsync" disabled="@(IsInstrumentBusy || GeneratedCommands.Count == 0)">
-                                    @(IsInstrumentBusy ? "Streaming..." : "Run generated commands")
-                                </button>
-                                <button class="btn btn-outline-secondary btn-sm" type="button" disabled="@IsInstrumentBusy" @onclick="TriggerSequencePickerAsync">Run OpenTAP sequence...</button>
-                            </div>
-                        </div>
-                        @if (LastInstrumentExecution is not null)
-                        {
-                            <p class="instrument-summary small text-muted mb-0 mt-2">
-                                Last run <strong>@(LastInstrumentExecution.SequenceName ?? "Ad-hoc batch")</strong>
-                                sent @LastInstrumentExecution.CommandCount command(s) to
-                                <code>@LastInstrumentExecution.ResourceAddress</code>
-                                in @LastInstrumentExecution.Duration.TotalMilliseconds.ToString("F0") ms.
-                            </p>
-                        }
-                    </div>
-
-                    <div class="flex-grow-1">
-                        @if (GeneratedCommands.Count == 0)
-                        {
-                            <p class="text-muted mb-0">Commands will appear here after a successful parse.</p>
-                        }
-                        else
-                        {
-                            <div class="table-responsive">
-                                <table class="table table-sm table-striped mb-0">
-                                    <thead>
-                                        <tr>
-                                            <th scope="col" style="width:6rem">#</th>
-                                            <th scope="col">Command</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var entry in GeneratedCommands.Select((command, index) => new { command, index }))
-                                        {
-                                            <tr>
-                                                <th scope="row">@(entry.index + 1)</th>
-                                                <td><code>@entry.command.Text</code></td>
-                                            </tr>
-                                        }
-                                    </tbody>
-                                </table>
-                            </div>
-                        }
-                    </div>
-
-                    <div class="custom-command-section">
-                        <h6 class="slicer-section-title">Custom instrument commands</h6>
-                        <InputTextArea class="form-control form-control-sm custom-command-input" rows="3" @bind-Value="CustomCommandText" @bind-Value:event="oninput" placeholder="*IDN?&#10;SOUR1:FREQ 1GHz" />
-                        <div class="d-flex justify-content-between align-items-center mt-2 flex-wrap gap-2">
-                            <span class="form-text">Use this area for instrument-specific overrides or troubleshooting.</span>
-                            <button class="btn btn-outline-secondary btn-sm" type="button" @onclick="SendCustomCommandsAsync" disabled="@(IsInstrumentBusy || string.IsNullOrWhiteSpace(CustomCommandText))">Send to instrument</button>
-                        </div>
                     </div>
                 </div>
             </div>
