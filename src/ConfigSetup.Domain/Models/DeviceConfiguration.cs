@@ -19,7 +19,8 @@ public sealed class DeviceConfiguration
         string? frequency,
         string? power,
         string? mode,
-        IEnumerable<DeviceParameter>? parameters = null)
+        IEnumerable<DeviceParameter>? parameters = null,
+        InstrumentConnection? connection = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
 
@@ -29,6 +30,7 @@ public sealed class DeviceConfiguration
         Power = string.IsNullOrWhiteSpace(power) ? null : power.Trim();
         Mode = string.IsNullOrWhiteSpace(mode) ? null : mode.Trim();
         _parameters = new ReadOnlyCollection<DeviceParameter>((parameters ?? Array.Empty<DeviceParameter>()).ToArray());
+        Connection = connection;
     }
 
     /// <summary>
@@ -46,6 +48,8 @@ public sealed class DeviceConfiguration
     public string? Power { get; }
 
     public string? Mode { get; }
+
+    public InstrumentConnection? Connection { get; }
 
     /// <summary>
     /// Additional named parameters that may appear in the document.

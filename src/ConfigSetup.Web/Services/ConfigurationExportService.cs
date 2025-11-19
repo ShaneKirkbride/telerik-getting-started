@@ -37,6 +37,8 @@ public sealed class ConfigurationExportService
         AppendChildElement(element, "Power", device.Power);
         AppendChildElement(element, "Mode", device.Mode);
 
+        AppendConnection(element, device.Connection);
+
         foreach (var parameter in device.Parameters)
         {
             var value = Normalize(parameter.Value);
@@ -63,6 +65,41 @@ public sealed class ConfigurationExportService
         }
 
         container.Add(new XElement(name, content));
+    }
+
+    private static void AppendConnection(XContainer container, ExportConnectionRequest? connection)
+    {
+        if (connection is null)
+        {
+            return;
+        }
+
+        var address = Normalize(connection.Address);
+        var protocol = Normalize(connection.Protocol);
+        var port = Normalize(connection.Port);
+
+        if (string.IsNullOrWhiteSpace(address) && string.IsNullOrWhiteSpace(protocol) && string.IsNullOrWhiteSpace(port))
+        {
+            return;
+        }
+
+        var connectionElement = new XElement("Connection");
+        if (!string.IsNullOrWhiteSpace(protocol))
+        {
+            connectionElement.SetAttributeValue("protocol", protocol);
+        }
+
+        if (!string.IsNullOrWhiteSpace(address))
+        {
+            connectionElement.Add(new XElement("Address", address));
+        }
+
+        if (!string.IsNullOrWhiteSpace(port))
+        {
+            connectionElement.Add(new XElement("Port", port));
+        }
+
+        container.Add(connectionElement);
     }
 
     private static string Normalize(string? value)

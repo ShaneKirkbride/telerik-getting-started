@@ -18,6 +18,8 @@ public sealed class SourceUploadRequest
 
     public string? Mode { get; init; }
 
+    public SourceUploadConnection? Connection { get; init; }
+
     public IList<SourceUploadParameter> Parameters { get; init; } = new List<SourceUploadParameter>();
 
     public void EnsureIsValid()
@@ -30,6 +32,33 @@ public sealed class SourceUploadRequest
         foreach (var parameter in Parameters)
         {
             parameter.EnsureIsValid();
+        }
+
+        Connection?.EnsureIsValid();
+    }
+}
+
+/// <summary>
+/// Describes the transport required to reach a specific source instrument.
+/// </summary>
+public sealed class SourceUploadConnection
+{
+    public string? Protocol { get; init; }
+
+    public string? Address { get; init; }
+
+    public string? Port { get; init; }
+
+    public void EnsureIsValid()
+    {
+        if (string.IsNullOrWhiteSpace(Address) && string.IsNullOrWhiteSpace(Protocol) && string.IsNullOrWhiteSpace(Port))
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(Address))
+        {
+            throw new InvalidOperationException("Connection details must include an address when provided.");
         }
     }
 }

@@ -35,6 +35,10 @@ public sealed partial class Home
     <Frequency>1.2GHz</Frequency>
     <Power>-10dBm</Power>
     <Mode>FDM</Mode>
+    <Connection protocol="HiSLIP">
+      <Address>192.168.0.20</Address>
+      <Port>4880</Port>
+    </Connection>
     <Parameter name="WAVE:TYPE" value="SINE" />
   </Device>
 </Configuration>
@@ -111,6 +115,7 @@ public sealed partial class Home
     {
         InitializeDefaultEditors();
         InstrumentResourceAddress = InstrumentOptions.Value.DefaultResourceAddress ?? string.Empty;
+        UpdateSelectedInstrumentAddress();
     }
 
     private async Task TriggerFilePickerAsync()
@@ -334,13 +339,24 @@ public sealed partial class Home
 
         foreach (var editor in DeviceEditors)
         {
+            var connectionModel = editor.Connection.ToConnectionModel();
+            var connectionRequest = string.IsNullOrWhiteSpace(connectionModel.Host)
+                ? null
+                : new ExportConnectionRequest
+                {
+                    Protocol = connectionModel.Protocol,
+                    Address = connectionModel.Host,
+                    Port = connectionModel.Port
+                };
+
             var device = new ExportDeviceRequest
             {
                 Name = editor.Name,
                 Source = CurrentOrDefault(editor.Source, editor.DefaultSource),
                 Frequency = CurrentOrDefault(editor.Frequency, editor.DefaultFrequency),
                 Power = CurrentOrDefault(editor.Power, editor.DefaultPower),
-                Mode = CurrentOrDefault(editor.Mode, editor.DefaultMode)
+                Mode = CurrentOrDefault(editor.Mode, editor.DefaultMode),
+                Connection = connectionRequest
             };
 
             foreach (var parameter in editor.Parameters)
@@ -428,6 +444,7 @@ public sealed partial class Home
         ArgumentNullException.ThrowIfNull(device);
         SelectedDevice = device;
         EditorWorkspace.SetActiveTab(EditorWorkspaceTab.SourceEditor);
+        UpdateSelectedInstrumentAddress();
     }
 
     private bool IsDeviceSelected(DeviceEditorViewModel device)
@@ -495,6 +512,7 @@ public sealed partial class Home
         }
 
         SelectedDevice ??= DeviceEditors.FirstOrDefault();
+        UpdateSelectedInstrumentAddress();
     }
 
     private void InitializeDefaultEditors()
@@ -551,6 +569,27 @@ public sealed partial class Home
         return string.IsNullOrWhiteSpace(content) ? null : content;
     }
 
+    private void OnConnectionChanged(DeviceEditorViewModel device)
+    {
+        ArgumentNullException.ThrowIfNull(device);
+
+        if (ReferenceEquals(device, SelectedDevice))
+        {
+            UpdateSelectedInstrumentAddress();
+        }
+    }
+
+    private void UpdateSelectedInstrumentAddress()
+    {
+        if (SelectedDevice is null)
+        {
+            return;
+        }
+
+        var resourceAddress = SelectedDevice.Connection.BuildVisaResourceAddress();
+        InstrumentResourceAddress = resourceAddress;
+    }
+
     private async Task UploadSourcesAsync(IEnumerable<DeviceEditorViewModel> devices)
     {
         ArgumentNullException.ThrowIfNull(devices);
@@ -589,6 +628,8 @@ public sealed partial class Home
     {
         ArgumentNullException.ThrowIfNull(editor);
 
+        var connectionModel = editor.Connection.ToConnectionModel();
+
         return new SourceUploadRequest
         {
             Name = editor.Name,
@@ -596,6 +637,14 @@ public sealed partial class Home
             Frequency = CurrentOrDefault(editor.Frequency, editor.DefaultFrequency),
             Power = CurrentOrDefault(editor.Power, editor.DefaultPower),
             Mode = CurrentOrDefault(editor.Mode, editor.DefaultMode),
+            Connection = string.IsNullOrWhiteSpace(connectionModel.Host)
+                ? null
+                : new SourceUploadConnection
+                {
+                    Protocol = connectionModel.Protocol,
+                    Address = connectionModel.Host,
+                    Port = connectionModel.Port
+                },
             Parameters = editor.Parameters
                 .Where(parameter => !string.IsNullOrWhiteSpace(parameter.ValueOrDefault))
                 .Select(parameter => new SourceUploadParameter(parameter.Name, parameter.ValueOrDefault))
@@ -671,6 +720,7 @@ public sealed partial class Home
 
     private bool TryGetInstrumentAddress(out string resourceAddress)
     {
+        UpdateSelectedInstrumentAddress();
         resourceAddress = InstrumentResourceAddress?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(resourceAddress))
         {

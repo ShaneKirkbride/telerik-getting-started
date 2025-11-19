@@ -20,7 +20,8 @@ public sealed class DeviceEditorViewModel
         string? defaultFrequency = null,
         string? defaultPower = null,
         string? defaultMode = null,
-        IEnumerable<ParameterEditorViewModel>? parameters = null)
+        IEnumerable<ParameterEditorViewModel>? parameters = null,
+        InstrumentConnectionEditorViewModel? connection = null)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -37,6 +38,8 @@ public sealed class DeviceEditorViewModel
         Frequency = DefaultFrequency;
         Power = DefaultPower;
         Mode = DefaultMode;
+
+        Connection = connection ?? new InstrumentConnectionEditorViewModel();
 
         _parameters = parameters?.Select(parameter =>
             {
@@ -64,6 +67,8 @@ public sealed class DeviceEditorViewModel
 
     public string Mode { get; set; }
 
+    public InstrumentConnectionEditorViewModel Connection { get; }
+
     public IList<ParameterEditorViewModel> Parameters => _parameters;
 
     public void ResetToDefaults()
@@ -72,6 +77,7 @@ public sealed class DeviceEditorViewModel
         Frequency = DefaultFrequency;
         Power = DefaultPower;
         Mode = DefaultMode;
+        Connection.ResetToDefault();
 
         foreach (var parameter in _parameters)
         {
@@ -91,6 +97,7 @@ public sealed class DeviceEditorViewModel
         Frequency = string.IsNullOrWhiteSpace(configuration.Frequency) ? DefaultFrequency : configuration.Frequency.Trim();
         Power = string.IsNullOrWhiteSpace(configuration.Power) ? DefaultPower : configuration.Power.Trim();
         Mode = string.IsNullOrWhiteSpace(configuration.Mode) ? DefaultMode : configuration.Mode.Trim();
+        Connection.Apply(configuration.Connection);
 
         foreach (var parameter in _parameters)
         {
@@ -132,6 +139,12 @@ public sealed class DeviceEditorViewModel
         AppendElement(element, "Power", Power, DefaultPower);
         AppendElement(element, "Mode", Mode, DefaultMode);
 
+        var connectionElement = Connection.ToXElement();
+        if (connectionElement is not null)
+        {
+            element.Add(connectionElement);
+        }
+
         foreach (var parameter in _parameters)
         {
             var value = parameter.ValueOrDefault;
@@ -163,7 +176,11 @@ public sealed class DeviceEditorViewModel
             configuration.Frequency,
             configuration.Power,
             configuration.Mode,
-            parameters);
+            parameters,
+            new InstrumentConnectionEditorViewModel(
+                configuration.Connection?.Protocol,
+                configuration.Connection?.Host,
+                configuration.Connection?.Port));
 
         viewModel.Apply(configuration);
         return viewModel;

@@ -53,11 +53,14 @@ public sealed class SimulatedSourceUploadService : ISourceUploadService
         foreach (var request in requestList)
         {
             _logger.LogInformation(
-                "Uploading settings for {SourceName} (Mode={Mode}, Frequency={Frequency}, Power={Power}) with {ParameterCount} parameters.",
+                "Uploading settings for {SourceName} (Mode={Mode}, Frequency={Frequency}, Power={Power}) via {Address}:{Port} ({Protocol}) with {ParameterCount} parameters.",
                 request.Name,
                 request.Mode ?? "N/A",
                 request.Frequency ?? "N/A",
                 request.Power ?? "N/A",
+                request.Connection?.Address ?? "N/A",
+                request.Connection?.Port ?? "N/A",
+                request.Connection?.Protocol ?? "N/A",
                 request.Parameters.Count);
         }
 

@@ -15,6 +15,15 @@
               <xs:element name="Frequency" type="NonEmptyString" minOccurs="0" />
               <xs:element name="Power" type="NonEmptyString" minOccurs="0" />
               <xs:element name="Mode" type="NonEmptyString" minOccurs="0" />
+              <xs:element name="Connection" minOccurs="0">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="Address" type="NonEmptyString" minOccurs="0" />
+                    <xs:element name="Port" type="NonEmptyString" minOccurs="0" />
+                  </xs:sequence>
+                  <xs:attribute name="protocol" type="NonEmptyString" use="optional" />
+                </xs:complexType>
+              </xs:element>
               <xs:element name="Parameter" minOccurs="0" maxOccurs="unbounded">
                 <xs:complexType>
                   <xs:attribute name="name" type="NonEmptyString" use="required" />

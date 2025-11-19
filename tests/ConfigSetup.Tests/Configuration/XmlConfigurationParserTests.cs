@@ -26,6 +26,10 @@ public class XmlConfigurationParserTests
     <Frequency>1.2GHz</Frequency>
     <Power>-10dBm</Power>
     <Mode>FDM</Mode>
+    <Connection protocol="HiSLIP">
+      <Address>192.168.0.20</Address>
+      <Port>4880</Port>
+    </Connection>
     <Parameter name="WAVE:TYPE" value="SINE" />
   </Device>
 </Configuration>
@@ -42,6 +46,10 @@ public class XmlConfigurationParserTests
         Assert.Equal("1.2GHz", device.Frequency);
         Assert.Equal("-10dBm", device.Power);
         Assert.Equal("FDM", device.Mode);
+        Assert.NotNull(device.Connection);
+        Assert.Equal("HiSLIP", device.Connection!.Protocol);
+        Assert.Equal("192.168.0.20", device.Connection.Host);
+        Assert.Equal("4880", device.Connection.Port);
         Assert.Single(device.Parameters);
         Assert.Equal("WAVE:TYPE", device.Parameters[0].Name);
         Assert.Equal("SINE", device.Parameters[0].Value);
