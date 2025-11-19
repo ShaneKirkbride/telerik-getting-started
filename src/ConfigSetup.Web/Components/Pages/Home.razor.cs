@@ -463,6 +463,55 @@ public sealed partial class Home
         UpdateSelectedInstrumentAddress();
     }
 
+    private void AddSource()
+    {
+        ClearAlerts();
+
+        GeneratedCommands.Clear();
+
+        var newEditor = new DeviceEditorViewModel(GenerateUniqueDeviceName("New Source"));
+        DeviceEditors.Add(newEditor);
+        SelectDevice(newEditor);
+
+        ShowSuccess($"Added '{newEditor.Name}'.");
+    }
+
+    private void RemoveSelectedSource()
+    {
+        if (SelectedDevice is null)
+        {
+            ShowError("Select a source before attempting to remove it.");
+            return;
+        }
+
+        ClearAlerts();
+
+        GeneratedCommands.Clear();
+
+        var removedDevice = SelectedDevice;
+        var removedIndex = DeviceEditors.IndexOf(removedDevice);
+
+        if (removedIndex < 0)
+        {
+            return;
+        }
+
+        DeviceEditors.RemoveAt(removedIndex);
+
+        if (DeviceEditors.Count == 0)
+        {
+            SelectedDevice = null;
+            InstrumentResourceAddress = string.Empty;
+        }
+        else
+        {
+            var nextIndex = Math.Min(removedIndex, DeviceEditors.Count - 1);
+            SelectDevice(DeviceEditors[nextIndex]);
+        }
+
+        ShowSuccess($"Removed '{removedDevice.Name}'.");
+    }
+
     private bool IsDeviceSelected(DeviceEditorViewModel device)
     {
         ArgumentNullException.ThrowIfNull(device);
@@ -599,11 +648,11 @@ public sealed partial class Home
     {
         if (SelectedDevice is null)
         {
+            InstrumentResourceAddress = string.Empty;
             return;
         }
 
-        var resourceAddress = SelectedDevice.Connection.BuildVisaResourceAddress();
-        InstrumentResourceAddress = resourceAddress;
+        InstrumentResourceAddress = SelectedDevice.Connection.BuildVisaResourceAddress();
     }
 
     private async Task UploadSourcesAsync(IEnumerable<DeviceEditorViewModel> devices)
@@ -763,6 +812,30 @@ public sealed partial class Home
     {
         SuccessMessage = message;
         ErrorMessage = null;
+    }
+
+    private string GenerateUniqueDeviceName(string baseName)
+    {
+        var existingNames = DeviceEditors
+            .Select(editor => editor.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (!existingNames.Contains(baseName))
+        {
+            return baseName;
+        }
+
+        var suffix = 2;
+        while (true)
+        {
+            var candidate = $"{baseName} {suffix}";
+            if (!existingNames.Contains(candidate))
+            {
+                return candidate;
+            }
+
+            suffix++;
+        }
     }
 
     private enum MenuType
