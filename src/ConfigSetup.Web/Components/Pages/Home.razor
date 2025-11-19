@@ -55,14 +55,22 @@
     <div class="row g-4 align-items-stretch source-workspace-row">
         <div class="col-12 col-lg-4 col-xxl-3">
             <div class="card shadow-sm h-100 source-stack-card">
-                <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-3">
                     <div>
                         <div class="fw-semibold">Sources</div>
                         <p class="text-muted small mb-0">Stacked view keeps every source one click away.</p>
                     </div>
-                    <button class="btn btn-primary btn-sm" type="button" disabled="@(IsUploading || DeviceEditors.Count == 0)" @onclick="UploadAllSourcesAsync">
-                        @(IsUploading ? "Updating..." : "Update all sources")
-                    </button>
+                    <div class="d-flex align-items-center justify-content-end gap-2 flex-wrap">
+                        <button class="btn btn-outline-success btn-sm" type="button" disabled="@IsUploading" @onclick="AddSource">
+                            + Add source
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm" type="button" disabled="@((SelectedDevice is null) || IsUploading)" @onclick="RemoveSelectedSource">
+                            - Remove source
+                        </button>
+                        <button class="btn btn-primary btn-sm" type="button" disabled="@(IsUploading || DeviceEditors.Count == 0)" @onclick="UploadAllSourcesAsync">
+                            @(IsUploading ? "Updating..." : "Update all sources")
+                        </button>
+                    </div>
                 </div>
                 <div class="card-body">
                     <p class="card-text">Select any source on the left to load its parameters in the editor tab.</p>
@@ -133,15 +141,15 @@
                             @if (activeDevice is null)
                             {
                                 <div class="source-detail-empty text-muted">
-                                    Select a source on the left to edit its configuration.
+                                    <div>Select a source on the left to edit its configuration.</div>
                                 </div>
                             }
                             else
-                                    {
-                                        <div class="source-detail-panel">
-                                            <div class="source-detail-header">
-                                                <div>
-                                                    <div class="source-detail-title">@activeDevice.Name</div>
+                            {
+                                <div class="source-detail-panel">
+                                    <div class="source-detail-header">
+                                        <div>
+                                            <div class="source-detail-title">@activeDevice.Name</div>
                                             <div class="source-card-meta">
                                                 <span>Source <strong>@FormatDefault(CurrentOrDefault(activeDevice.Source, activeDevice.DefaultSource) ?? string.Empty)</strong></span>
                                                 <span>Mode <strong>@FormatDefault(CurrentOrDefault(activeDevice.Mode, activeDevice.DefaultMode) ?? string.Empty)</strong></span>
