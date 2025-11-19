@@ -371,18 +371,14 @@
 
 <details class="mt-4">
     <summary class="fw-semibold">Schema summary</summary>
-    <p class="mb-1">The configuration must follow the embedded schema:</p>
-    <pre class="bg-body-tertiary p-3 small">&lt;Configuration&gt;
-  &lt;Device name="Arb" source="Arb"&gt;
-    &lt;Frequency&gt;1.2GHz&lt;/Frequency&gt;
-    &lt;Power&gt;-10dBm&lt;/Power&gt;
-    &lt;Mode&gt;FDM&lt;/Mode&gt;
-    &lt;Connection protocol="HiSLIP"&gt;
-      &lt;Address&gt;192.168.0.20&lt;/Address&gt;
-      &lt;Port&gt;4880&lt;/Port&gt;
-    &lt;/Connection&gt;
-    &lt;Parameter name="WAVE:TYPE" value="SINE" /&gt;
-  &lt;/Device&gt;
-&lt;/Configuration&gt;</pre>
+    @if (SchemaSummaryDeviceName is null)
+    {
+        <p class="mb-1 text-muted">No instruments are available yet. Import XML or load a sample to view the schema.</p>
+    }
+    else
+    {
+        <p class="mb-1">The configuration for <strong>@SchemaSummaryDeviceName</strong> must follow the embedded schema:</p>
+        <pre class="bg-body-tertiary p-3 small">@SchemaSummaryXml</pre>
+    }
 </details>
 
