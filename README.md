@@ -34,6 +34,10 @@ dotnet build ConfigSetup.sln
 dotnet run --project src/ConfigSetup.Web/ConfigSetup.Web.csproj
 ```
 
+## Additional documentation
+
+* [Architecture overview](docs/ARCHITECTURE.md) – explains the solution boundaries, end-to-end data flow, and hosting profile.
+
 ## Packaging a versioned Windows executable
 
 1. Update the `<Version>` property inside `src/ConfigSetup.Web/ConfigSetup.Web.csproj` to the number you want baked into the desktop binary title. The project is configured to emit an assembly named `ConfigSetup.Web-v<Version>`, so publishing automatically yields an `.exe` such as `ConfigSetup.Web-v1.0.0.exe`.
